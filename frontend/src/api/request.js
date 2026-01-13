@@ -1,8 +1,10 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
+const baseURL = import.meta.env.BASE_URL === '/' ? '/api' : `${import.meta.env.BASE_URL}api`
+
 const request = axios.create({
-  baseURL: '/api',
+  baseURL,
   timeout: 10000
 })
 
@@ -24,7 +26,8 @@ request.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+      const basePath = import.meta.env.BASE_URL === '/' ? '' : import.meta.env.BASE_URL.slice(0, -1)
+      window.location.href = `${basePath}/login`
     } else {
       ElMessage.error(message)
     }
