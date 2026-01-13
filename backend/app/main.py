@@ -6,25 +6,28 @@ from app.routers import auth_router, reports_router, summary_router, admin_route
 from app.tasks.scheduler import setup_scheduler
 from app.models.user import User, UserRole
 from app.utils.security import get_password_hash
+from app.config import get_settings
 from sqlalchemy import select
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    settings = get_settings()
     # 启动时初始化数据库
     await init_db()
-    # 创建默认管理员
-    async with async_session() as db:
-        result = await db.execute(select(User).where(User.username == "admin"))
-        if not result.scalar_one_or_none():
-            admin = User(
-                username="admin",
-                password=get_password_hash("admin123"),
-                real_name="管理员",
-                role=UserRole.admin
-            )
-            db.add(admin)
-            await db.commit()
+    # 创建默认管理员（仅当配置了密码时）
+    if settings.ADMIN_PASSWORD:
+        async with async_session() as db:
+            result = await db.execute(select(User).where(User.username == "admin"))
+            if not result.scalar_one_or_none():
+                admin = User(
+                    username="admin",
+                    password=get_password_hash(settings.ADMIN_PASSWORD),
+                    real_name="管理员",
+                    role=UserRole.admin
+                )
+                db.add(admin)
+                await db.commit()
 
     # 启动定时任务
     scheduler = setup_scheduler()

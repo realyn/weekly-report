@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24小时
 
+    # 管理员初始密码
+    ADMIN_PASSWORD: str = ""
+
     # 文档存储路径
     DOCUMENTS_PATH: str = "./data/documents"
 
