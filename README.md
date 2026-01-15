@@ -350,6 +350,74 @@ server {
 }
 ```
 
+## 一键部署 (deploy.sh)
+
+### 部署原则
+
+**本地环境是数据主源**，所有修改应在本地完成测试后再同步到服务器。
+
+### 为什么本地调试好后同步到服务器会出问题？
+
+本地和服务器之间可能存在以下差异：
+
+| 差异类型 | 说明 | 解决方案 |
+|---------|------|---------|
+| 数据库结构 | 新增字段未同步 | 运行 `migrate.py` |
+| 数据文件 | projects.json、embeddings 等 | 使用 `--data-only` 同步 |
+| 环境变量 | .env 中的 LLM API Key 等 | 手动检查服务器 .env |
+| 前端构建 | dist/ 目录未更新 | 部署前执行 `npm run build` |
+
+### 使用方法
+
+```bash
+# 完整部署（默认）：代码 + 数据
+./deploy.sh
+
+# 仅同步代码（不覆盖服务器数据）
+./deploy.sh --code-only
+
+# 仅同步数据（保留服务器代码）
+./deploy.sh --data-only
+```
+
+### 部署流程
+
+```
+./deploy.sh
+    │
+    ├── [1/5] 构建前端 (npm run build)
+    │
+    ├── [2/5] 提交代码到 Git
+    │
+    ├── [3/5] 服务器拉取代码 (git pull)
+    │
+    ├── [4/5] rsync 同步前端 dist/
+    │
+    ├── [5/5] rsync 同步数据文件
+    │
+    └── 重启后端服务 (uvicorn)
+```
+
+### 数据库迁移
+
+如果新增了数据库字段，需要在服务器上运行迁移脚本：
+
+```bash
+ssh mcp2 "cd ~/projects/weekly-report/backend && source venv/bin/activate && python scripts/migrate.py"
+```
+
+迁移脚本 `backend/scripts/migrate.py` 会自动检测并添加缺失的列：
+- `users.must_change_password` - 首次登录强制改密
+- `weekly_summary.llm_analysis` - LLM 分析缓存
+- `weekly_summary.analyzed_at` - 分析时间戳
+
+### 注意事项
+
+1. **首次部署**：确保服务器 `.env` 配置完整（特别是 LLM API Key）
+2. **数据覆盖**：`--data-only` 会覆盖服务器数据，谨慎使用
+3. **服务重启**：部署脚本会自动重启后端服务
+4. **验证部署**：部署完成后检查 https://mcp.realyn.cn/weekly-report/ 是否正常
+
 ## 使用说明
 
 ### 普通用户

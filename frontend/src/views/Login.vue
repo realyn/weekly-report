@@ -12,24 +12,27 @@ const form = ref({
   password: ''
 })
 const loading = ref(false)
+const errorMessage = ref('')
 
 const handleLogin = async () => {
+  errorMessage.value = ''
+
   if (!form.value.username || !form.value.password) {
-    ElMessage.warning('请输入用户名和密码')
+    errorMessage.value = '请输入用户名和密码'
     return
   }
 
   loading.value = true
   try {
     const { mustChangePassword } = await userStore.login(form.value.username, form.value.password)
-    ElMessage.success('登录成功')
+    ElMessage.success({ message: '登录成功', duration: 1500 })
     if (mustChangePassword) {
       router.push('/change-password')
     } else {
       router.push('/')
     }
   } catch (e) {
-    // error handled by interceptor
+    errorMessage.value = e.response?.data?.detail || '登录失败，请重试'
   } finally {
     loading.value = false
   }
@@ -125,6 +128,16 @@ const handleLogin = async () => {
                   placeholder="请输入密码"
                 />
               </div>
+            </div>
+
+            <!-- 错误提示 -->
+            <div v-if="errorMessage" class="error-message">
+              <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span>{{ errorMessage }}</span>
             </div>
 
             <button type="submit" class="login-btn" :disabled="loading">
@@ -380,6 +393,24 @@ const handleLogin = async () => {
 
 .form-input::placeholder {
   color: #aaa;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #dc2626;
+  font-size: 14px;
+}
+
+.error-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .login-btn {

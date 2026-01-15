@@ -1,0 +1,286 @@
+{
+  "projects": [
+    {
+      "name": "清明上河图",
+      "aliases": [
+        "清图网站",
+        "清图",
+        "清明上河图网站",
+        "科传",
+        "科传系统",
+        "科传合同"
+      ],
+      "category": "文旅文化",
+      "description": "清明上河图数字化文化项目",
+      "sub_items": [
+        {
+          "name": "河南开封科技传媒学院合作",
+          "description": "科传合作"
+        },
+        {
+          "name": "十二时辰制作",
+          "description": ""
+        },
+        {
+          "name": "知识图谱",
+          "description": ""
+        },
+        {
+          "name": "大屏展示",
+          "description": ""
+        },
+        {
+          "name": "官网开发",
+          "description": "清明上河图官网开发"
+        },
+        {
+          "name": "XR内容",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "甲骨文",
+      "aliases": [
+        "原力",
+        "原力平台",
+        "了不起的甲骨文",
+        "甲骨文项目",
+        "阜民里",
+        "阜民里项目"
+      ],
+      "category": "文旅文化",
+      "description": "甲骨文数字化文化项目",
+      "sub_items": [
+        {
+          "name": "原力平台",
+          "description": ""
+        },
+        {
+          "name": "VR内容制作",
+          "description": ""
+        },
+        {
+          "name": "安阳XR落地",
+          "description": ""
+        },
+        {
+          "name": "阜民里项目",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "大河云AI",
+      "aliases": [
+        "大河云",
+        "大河云AI升级",
+        "AI升级",
+        "生图模块",
+        "AI海报",
+        "AI艺术字",
+        "AI人像",
+        "线索大屏",
+        "线索",
+        "智能体",
+        "出行助手",
+        "出行",
+        "出行规划",
+        "指挥中心",
+        "指挥"
+      ],
+      "category": "大河云",
+      "description": "大河云平台AI能力建设",
+      "sub_items": [
+        {
+          "name": "知识库建设",
+          "description": ""
+        },
+        {
+          "name": "写作助手",
+          "description": ""
+        },
+        {
+          "name": "检索入口",
+          "description": ""
+        },
+        {
+          "name": "生图模块",
+          "description": ""
+        },
+        {
+          "name": "线索大屏",
+          "description": ""
+        },
+        {
+          "name": "出行助手",
+          "description": ""
+        },
+        {
+          "name": "指挥中心",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "集团广告业务管理系统",
+      "aliases": [
+        "广告业务",
+        "广告系统",
+        "河南日报广告业务系统",
+        "河南日报广告业务管理系统",
+        "集团业务",
+        "集团业务管理",
+        "集团业务管理系统",
+        "OCR",
+        "OCR服务",
+        "文字识别"
+      ],
+      "category": "业务系统",
+      "description": "集团广告业务管理系统",
+      "sub_items": [
+        {
+          "name": "广告管理",
+          "description": ""
+        },
+        {
+          "name": "业务流程",
+          "description": ""
+        },
+        {
+          "name": "OCR识别",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "办公网系统",
+      "aliases": [
+        "办公网",
+        "OA",
+        "办公系统"
+      ],
+      "category": "业务系统",
+      "description": "集团办公网系统",
+      "sub_items": []
+    },
+    {
+      "name": "一省一报系统",
+      "aliases": [
+        "一省一报"
+      ],
+      "category": "运营商业务",
+      "description": "运营商一省一报业务系统",
+      "sub_items": []
+    },
+    {
+      "name": "短信平台",
+      "aliases": [
+        "短信",
+        "短信服务",
+        "5G消息"
+      ],
+      "category": "运营商业务",
+      "description": "运营商短信/5G消息平台",
+      "sub_items": []
+    },
+    {
+      "name": "新界平台",
+      "aliases": [
+        "新界"
+      ],
+      "category": "运营商业务",
+      "description": "面向C端用户的Web App",
+      "sub_items": []
+    },
+    {
+      "name": "智慧教育平台",
+      "aliases": [
+        "智慧教育",
+        "红干院"
+      ],
+      "category": "教育培训",
+      "description": "干部学院智慧教育管理平台，红旗渠干部管理学院等",
+      "sub_items": []
+    },
+    {
+      "name": "大语言模型",
+      "aliases": [
+        "RAG",
+        "LLM",
+        "embedding",
+        "langgraph",
+        "大模型"
+      ],
+      "category": "AI技术研究",
+      "description": "大语言模型技术研究与应用",
+      "sub_items": [
+        {
+          "name": "RAG系统",
+          "description": ""
+        },
+        {
+          "name": "知识库建设",
+          "description": ""
+        },
+        {
+          "name": "Embedding服务",
+          "description": ""
+        },
+        {
+          "name": "Agent开发",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "服务器运维",
+      "aliases": [
+        "服务器",
+        "监控",
+        "运维",
+        "grafana"
+      ],
+      "category": "技术运维",
+      "description": "服务器运维与监控",
+      "sub_items": []
+    },
+    {
+      "name": "网络安全",
+      "aliases": [
+        "安全",
+        "网安",
+        "信息安全",
+        "等保",
+        "漏洞",
+        "渗透"
+      ],
+      "category": "技术运维",
+      "description": "网络安全与信息安全",
+      "sub_items": []
+    },
+    {
+      "name": "XR项目",
+      "aliases": [
+        "XR",
+        "VR",
+        "AR"
+      ],
+      "category": "文旅文化",
+      "description": "XR技术在文旅项目中的应用",
+      "sub_items": []
+    }
+  ],
+  "categories": [
+    "文旅文化",
+    "大河云",
+    "业务系统",
+    "运营商业务",
+    "教育培训",
+    "AI技术研究",
+    "技术运维",
+    "其他"
+  ],
+  "pending_projects": [],
+  "rejected": []
+}
