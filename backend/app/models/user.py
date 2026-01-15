@@ -20,6 +20,7 @@ class User(Base):
     department = Column(String(100), default="产品研发部")
     role = Column(SQLEnum(UserRole), default=UserRole.user)
     is_active = Column(Boolean, default=True)
+    must_change_password = Column(Boolean, default=True)  # 首次登录需修改密码
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 

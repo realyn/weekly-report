@@ -39,7 +39,6 @@ EMPLOYEES = {
     '闻世坤': {'department': '产品研发部'},
     '秦闪闪': {'department': '产品研发部'},
     '蒋奇朴': {'department': '产品研发部'},
-    '潘六林': {'department': '产品研发部'},
 }
 
 # 默认用户密码
@@ -74,47 +73,65 @@ def parse_weekly_report(filepath: str) -> dict:
         raise ValueError(f"无法从 {filepath} 中解析日期")
 
     year, month, day = date_match.groups()
+
+    # 优先从文件名提取年份（文件名格式如：产品研发部工作计划2026.01.10.docx）
+    filename = os.path.basename(filepath)
+    filename_year_match = re.search(r'(\d{4})\.(\d{2})\.(\d{2})', filename)
+    if filename_year_match:
+        year = filename_year_match.group(1)
+
     report_date = datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d").date()
     week_number = int(week_match.group(1)) if week_match else 1
 
-    # 提取所有单元格内容
-    all_cells = []
-    for row in table.rows:
+    # 找到"下周"部分的起始行
+    next_week_start_row = None
+    for row_idx, row in enumerate(table.rows):
         for cell in row.cells:
             text = cell.text.strip()
-            if text:
-                all_cells.append(text)
+            # 移除空格后检查（文档中可能有空格："下    周   \n内    容    说    明"）
+            text_no_space = text.replace(' ', '').replace('\n', '')
+            if '下周' in text_no_space and ('内容' in text_no_space or '说明' in text_no_space):
+                next_week_start_row = row_idx
+                break
+        if next_week_start_row is not None:
+            break
 
-    # 去重并保持顺序
-    seen = set()
-    unique_cells = []
-    for cell in all_cells:
-        if cell not in seen:
-            seen.add(cell)
-            unique_cells.append(cell)
-
-    # 解析每个人的工作内容
+    # 解析每个人的工作内容 - 逐行处理
     work_items = {}
     employee_names = list(EMPLOYEES.keys())
 
-    # 查找模式：员工名 -> 完成状态 -> 工作内容
-    for i, cell in enumerate(unique_cells):
-        if cell in employee_names:
-            # 找到员工名，向前查找工作内容
-            for j in range(max(0, i-5), i):
-                prev_cell = unique_cells[j]
-                # 检查是否是工作内容（以数字开头的列表）
-                if prev_cell and prev_cell[0].isdigit() and '.' in prev_cell[:3]:
-                    if cell not in work_items:
-                        work_items[cell] = {'this_week': [], 'next_week': []}
+    for row_idx, row in enumerate(table.rows):
+        # 获取该行所有单元格的文本（去重，保持顺序）
+        row_cells = []
+        seen_in_row = set()
+        for cell in row.cells:
+            text = cell.text.strip()
+            if text and text not in seen_in_row:
+                seen_in_row.add(text)
+                row_cells.append(text)
 
-                    # 判断是本周还是下周
-                    # 通过检查之前是否出现过"下周"关键词
-                    context = ' '.join(unique_cells[max(0, j-3):j])
-                    if '下' in context and '周' in context:
-                        work_items[cell]['next_week'].append(prev_cell)
-                    else:
-                        work_items[cell]['this_week'].append(prev_cell)
+        # 在该行中查找员工名
+        for i, cell_text in enumerate(row_cells):
+            if cell_text in employee_names:
+                employee_name = cell_text
+                if employee_name not in work_items:
+                    work_items[employee_name] = {'this_week': [], 'next_week': []}
+
+                # 在同一行中查找工作内容（在员工名前面的单元格中）
+                for j in range(i):
+                    content = row_cells[j]
+                    # 检查是否是工作内容（以数字开头，且包含点或顿号）
+                    if content and len(content) > 3 and content[0].isdigit():
+                        if '.' in content[:4] or '、' in content[:4] or '，' in content[:4]:
+                            # 根据行号判断是本周还是下周
+                            is_next_week = next_week_start_row is not None and row_idx >= next_week_start_row
+
+                            if is_next_week:
+                                if content not in work_items[employee_name]['next_week']:
+                                    work_items[employee_name]['next_week'].append(content)
+                            else:
+                                if content not in work_items[employee_name]['this_week']:
+                                    work_items[employee_name]['this_week'].append(content)
 
     return {
         'date': report_date,
@@ -124,8 +141,13 @@ def parse_weekly_report(filepath: str) -> dict:
     }
 
 
-async def import_data(docx_dir: str):
-    """导入数据到数据库"""
+async def import_data(docx_dir: str, update_existing: bool = False):
+    """导入数据到数据库
+
+    Args:
+        docx_dir: Word文档目录
+        update_existing: 是否更新已存在的记录
+    """
     await init_db()
 
     # 查找所有 docx 文件
@@ -196,12 +218,17 @@ async def import_data(docx_dir: str):
                     )
                     existing = result.scalar_one_or_none()
 
-                    if existing:
-                        print(f"  {name}: 周报已存在，跳过")
-                        continue
-
                     this_week = '\n'.join(work.get('this_week', []))
                     next_week = '\n'.join(work.get('next_week', []))
+
+                    if existing:
+                        if update_existing:
+                            existing.this_week_work = this_week or existing.this_week_work
+                            existing.next_week_plan = next_week or existing.next_week_plan
+                            print(f"  {name}: 更新成功")
+                        else:
+                            print(f"  {name}: 周报已存在，跳过")
+                        continue
 
                     if this_week or next_week:
                         report = Report(
@@ -213,12 +240,14 @@ async def import_data(docx_dir: str):
                             status=ReportStatus.submitted
                         )
                         db.add(report)
-                        print(f"  {name}: 导入成功")
+                        print(f"  {name}: 导入成功 (本周{len(work.get('this_week', []))}条, 下周{len(work.get('next_week', []))}条)")
 
                 await db.commit()
 
             except Exception as e:
                 print(f"  解析错误: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
 
     print("\n=== 导入完成 ===")
@@ -226,12 +255,15 @@ async def import_data(docx_dir: str):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("用法: python scripts/import_data.py /path/to/docx/files/")
+        print("用法: python scripts/import_data.py /path/to/docx/files/ [--update]")
+        print("  --update: 更新已存在的记录")
         sys.exit(1)
 
     docx_dir = sys.argv[1]
+    update_existing = "--update" in sys.argv
+
     if not os.path.isdir(docx_dir):
         print(f"目录不存在: {docx_dir}")
         sys.exit(1)
 
-    asyncio.run(import_data(docx_dir))
+    asyncio.run(import_data(docx_dir, update_existing))

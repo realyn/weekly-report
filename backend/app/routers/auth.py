@@ -40,5 +40,6 @@ async def change_password(
         raise HTTPException(status_code=400, detail="原密码错误")
 
     current_user.password = get_password_hash(password_data.new_password)
+    current_user.must_change_password = False  # 重置首次登录标记
     await db.commit()
     return {"message": "密码修改成功"}

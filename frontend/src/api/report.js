@@ -26,5 +26,9 @@ export const reportApi = {
 
   delete(id) {
     return request.delete(`/reports/${id}`)
+  },
+
+  getDeadline(year, week) {
+    return request.get('/reports/deadline', { params: { year, week } })
   }
 }

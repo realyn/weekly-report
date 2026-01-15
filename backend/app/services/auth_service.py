@@ -30,4 +30,8 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
 
 def create_user_token(user: User) -> dict:
     access_token = create_access_token(data={"sub": user.username})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "must_change_password": user.must_change_password
+    }

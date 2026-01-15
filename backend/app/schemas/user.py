@@ -35,6 +35,7 @@ class UserResponse(UserBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    must_change_password: bool = False
 
 
 class TokenData(BaseModel):
