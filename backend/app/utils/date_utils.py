@@ -29,14 +29,11 @@ async def get_week_deadline(year: int, week_num: int) -> datetime:
     """
     获取指定周的周报修改截止时间
     规则：该周最后一个工作日的 23:59:59
+    使用数据库缓存的节假日数据，自动处理法定假日和调休
     """
-    from app.services.holiday_service import get_week_last_workday
+    from app.services.holiday_service import get_week_deadline as holiday_get_deadline
 
-    last_workday = await get_week_last_workday(year, week_num)
-    # 转换为 datetime 并设置为当天 23:59:59
-    if isinstance(last_workday, date) and not isinstance(last_workday, datetime):
-        last_workday = datetime.combine(last_workday, datetime.min.time())
-    return last_workday.replace(hour=23, minute=59, second=59)
+    return await holiday_get_deadline(year, week_num)
 
 
 async def is_within_deadline(year: int, week_num: int) -> bool:

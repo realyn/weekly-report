@@ -5,6 +5,7 @@ from app.database import init_db, async_session
 from app.routers import auth_router, reports_router, summary_router, admin_router, projects_router
 from app.tasks.scheduler import setup_scheduler
 from app.models.user import User, UserRole
+from app.models import holiday  # 确保节假日表被创建
 from app.utils.security import get_password_hash
 from app.config import get_settings
 from sqlalchemy import select
@@ -28,6 +29,10 @@ async def lifespan(app: FastAPI):
                 )
                 db.add(admin)
                 await db.commit()
+
+    # 初始化节假日数据（从API获取并缓存到数据库）
+    from app.services.holiday_service import init_holiday_data
+    await init_holiday_data()
 
     # 启动定时任务
     scheduler = setup_scheduler()

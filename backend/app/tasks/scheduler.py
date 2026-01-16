@@ -28,6 +28,16 @@ async def weekly_summary_job():
             logger.error(f"周报汇总失败: {e}")
 
 
+async def holiday_data_update_job():
+    """检查并更新节假日数据"""
+    from app.services.holiday_service import check_and_update_holiday_data
+    logger.info("开始检查节假日数据更新")
+    try:
+        await check_and_update_holiday_data()
+    except Exception as e:
+        logger.error(f"节假日数据更新失败: {e}")
+
+
 def setup_scheduler():
     """设置定时任务"""
     # 每周六18:00执行汇总
@@ -35,6 +45,15 @@ def setup_scheduler():
         weekly_summary_job,
         CronTrigger(day_of_week="sat", hour=18, minute=0),
         id="weekly_summary",
+        replace_existing=True
+    )
+
+    # 每天10:00检查节假日数据更新
+    # 11月15日后会自动获取下一年数据，1月1-7日会强制刷新当年数据
+    scheduler.add_job(
+        holiday_data_update_job,
+        CronTrigger(hour=10, minute=0),
+        id="holiday_data_update",
         replace_existing=True
     )
     return scheduler
