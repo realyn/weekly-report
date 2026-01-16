@@ -13,6 +13,7 @@ const nextWeekItems = ref([{ content: '' }])
 
 // 截止时间信息
 const deadlineInfo = ref(null)
+const isLoading = ref(true)
 
 // ISO 周计算函数（与Chart.vue和后端保持一致）
 const getISOWeekAndYear = (date) => {
@@ -123,6 +124,8 @@ onMounted(async () => {
   if (deadlineRes?.data) {
     deadlineInfo.value = deadlineRes.data
   }
+
+  isLoading.value = false
 })
 
 const handleSave = async (status = 'draft') => {
@@ -320,7 +323,7 @@ const handleReset = () => {
       </div>
 
       <!-- 已提交状态提示 -->
-      <div class="submitted-notice" :class="{ editable: canEdit && isSubmitted, expired: !canEdit && isSubmitted }" v-if="isSubmitted">
+      <div class="submitted-notice" :class="{ editable: canEdit && isSubmitted, expired: !canEdit && isSubmitted }" v-if="isSubmitted && !isLoading">
         <div class="notice-text">
           <strong>{{ canEdit ? '周报可修改' : '周报已锁定' }}</strong>
           <p v-if="deadlineInfo">
