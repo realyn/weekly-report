@@ -5,9 +5,9 @@ import logging
 from app.database import get_db, async_session
 from app.schemas.report import ReportCreate, ReportUpdate, ReportResponse
 from app.services import report_service
-from app.utils.security import get_current_user
+from app.utils.security import get_current_user, get_current_admin
 from app.utils.date_utils import get_current_week, is_within_deadline, get_deadline_info
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.report import ReportStatus
 
 router = APIRouter(prefix="/api/reports", tags=["周报"])
@@ -142,3 +142,19 @@ async def delete_report(
         raise HTTPException(status_code=400, detail="已提交的周报不能删除")
     await report_service.delete_report(db, report)
     return {"message": "删除成功"}
+
+
+@router.get("/admin/user/{user_id}", response_model=list[ReportResponse])
+async def get_user_reports_admin(
+    user_id: int,
+    year: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """管理员查看指定用户的周报历史"""
+    if current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="仅管理员可访问")
+    if not year:
+        year, _ = get_current_week()
+    reports = await report_service.get_reports(db, year, None, user_id)
+    return reports

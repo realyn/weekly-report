@@ -30,5 +30,12 @@ export const reportApi = {
 
   getDeadline(year, week) {
     return request.get('/reports/deadline', { params: { year, week } })
+  },
+
+  // 管理员查看指定用户的周报
+  getUserReports(userId, year) {
+    const params = {}
+    if (year) params.year = year
+    return request.get(`/reports/admin/user/${userId}`, { params })
   }
 }

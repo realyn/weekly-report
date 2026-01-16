@@ -1,11 +1,21 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { reportApi } from '../api/report'
+import { useUserStore } from '../stores/user'
+import request from '../api/request'
+
+const userStore = useUserStore()
+const isAdmin = computed(() => userStore.user?.role === 'admin')
 
 const currentYear = new Date().getFullYear()
 const year = ref(currentYear)
 const reports = ref([])
 const loading = ref(false)
+
+// 管理员功能：用户列表和选中用户
+const users = ref([])
+const selectedUserId = ref(null)
+const loadingUsers = ref(false)
 
 // ISO 周计算函数（与Chart.vue保持一致）
 const getMondayOfWeek = (isoYear, isoWeek) => {
@@ -90,10 +100,39 @@ const groupedReports = computed(() => {
   return groups
 })
 
+// 获取用户列表（管理员）
+const fetchUsers = async () => {
+  if (!isAdmin.value) return
+  loadingUsers.value = true
+  try {
+    const data = await request.get('/admin/users/')
+    // 过滤出活跃用户，管理员排第一
+    users.value = data
+      .filter(u => u.is_active)
+      .sort((a, b) => {
+        if (a.role === 'admin' && b.role !== 'admin') return -1
+        if (a.role !== 'admin' && b.role === 'admin') return 1
+        return a.id - b.id
+      })
+    // 默认选中当前用户
+    if (userStore.user) {
+      selectedUserId.value = userStore.user.id
+    }
+  } finally {
+    loadingUsers.value = false
+  }
+}
+
 const fetchReports = async () => {
   loading.value = true
   try {
-    reports.value = await reportApi.getList(year.value)
+    if (isAdmin.value && selectedUserId.value && selectedUserId.value !== userStore.user?.id) {
+      // 管理员查看其他用户的周报
+      reports.value = await reportApi.getUserReports(selectedUserId.value, year.value)
+    } else {
+      // 查看自己的周报
+      reports.value = await reportApi.getList(year.value)
+    }
   } catch (e) {
     // error handled
   } finally {
@@ -101,7 +140,15 @@ const fetchReports = async () => {
   }
 }
 
-onMounted(fetchReports)
+// 切换用户时重新加载
+watch(selectedUserId, () => {
+  fetchReports()
+})
+
+onMounted(async () => {
+  await fetchUsers()
+  fetchReports()
+})
 
 const getStatusType = (status) => status === 'submitted' ? 'success' : 'info'
 const getStatusText = (status) => status === 'submitted' ? '已提交' : '草稿'
@@ -116,6 +163,21 @@ const getStatusText = (status) => status === 'submitted' ? '已提交' : '草稿
         <div class="year-selector">
           <input type="number" v-model.number="year" min="2020" max="2030" class="selector-input" @change="fetchReports" />
           <span class="selector-label">年</span>
+        </div>
+      </div>
+
+      <!-- 管理员用户切换标签 -->
+      <div v-if="isAdmin && users.length > 0" class="user-tabs-container">
+        <div class="user-tabs">
+          <button
+            v-for="user in users"
+            :key="user.id"
+            class="user-tab"
+            :class="{ active: selectedUserId === user.id }"
+            @click="selectedUserId = user.id"
+          >
+            {{ user.real_name }}
+          </button>
         </div>
       </div>
 
@@ -246,6 +308,46 @@ const getStatusText = (status) => status === 'submitted' ? '已提交' : '草稿
   font-size: 14px;
   color: #64748b;
   font-weight: 500;
+}
+
+/* 用户切换标签 */
+.user-tabs-container {
+  margin-bottom: 16px;
+  background: white;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+}
+
+.user-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.user-tab {
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: white;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-tab:hover {
+  border-color: #7aaed8;
+  color: #7aaed8;
+  background: #f0f7fc;
+}
+
+.user-tab.active {
+  background: #7aaed8;
+  color: white;
+  border-color: #7aaed8;
 }
 
 /* 卡片 */
@@ -410,6 +512,19 @@ const getStatusText = (status) => status === 'submitted' ? '已提交' : '草稿
 
   .page-title {
     font-size: 1.25rem;
+  }
+
+  .user-tabs-container {
+    padding: 12px 16px;
+  }
+
+  .user-tabs {
+    gap: 6px;
+  }
+
+  .user-tab {
+    padding: 6px 12px;
+    font-size: 12px;
   }
 
   .work-cell {
