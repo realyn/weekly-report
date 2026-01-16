@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { authApi } from '../api/auth'
@@ -14,20 +14,50 @@ const form = ref({
   confirmPassword: ''
 })
 const loading = ref(false)
+const errorMsg = ref('')
+
+// 密码验证规则
+const passwordRules = [
+  { check: (p) => p.length >= 8, text: '至少8位字符' },
+  { check: (p) => /[A-Za-z]/.test(p), text: '包含字母' },
+  { check: (p) => /\d/.test(p), text: '包含数字' }
+]
+
+// 检查各规则是否满足
+const ruleStatus = computed(() => {
+  const pwd = form.value.newPassword
+  return passwordRules.map(rule => ({
+    text: rule.text,
+    passed: pwd ? rule.check(pwd) : null
+  }))
+})
+
+// 验证密码
+const validatePassword = (password) => {
+  for (const rule of passwordRules) {
+    if (!rule.check(password)) {
+      return `密码需${rule.text}`
+    }
+  }
+  return null
+}
 
 const handleSubmit = async () => {
+  errorMsg.value = ''
+
   if (!form.value.oldPassword || !form.value.newPassword || !form.value.confirmPassword) {
-    ElMessage.warning('请填写所有字段')
+    errorMsg.value = '请填写所有字段'
+    return
+  }
+
+  const pwdError = validatePassword(form.value.newPassword)
+  if (pwdError) {
+    errorMsg.value = pwdError
     return
   }
 
   if (form.value.newPassword !== form.value.confirmPassword) {
-    ElMessage.warning('两次输入的新密码不一致')
-    return
-  }
-
-  if (form.value.newPassword.length < 6) {
-    ElMessage.warning('新密码长度至少6位')
+    errorMsg.value = '两次输入的新密码不一致'
     return
   }
 
@@ -38,7 +68,7 @@ const handleSubmit = async () => {
     ElMessage.success('密码修改成功')
     router.push('/')
   } catch (e) {
-    // error handled by interceptor
+    errorMsg.value = e.response?.data?.detail || '修改失败，请检查原密码是否正确'
   } finally {
     loading.value = false
   }
@@ -90,8 +120,25 @@ const handleSubmit = async () => {
                 v-model="form.newPassword"
                 type="password"
                 class="form-input"
-                placeholder="请输入新密码（至少6位）"
+                placeholder="请输入新密码"
               />
+            </div>
+            <div class="password-rules">
+              <span
+                v-for="(rule, idx) in ruleStatus"
+                :key="idx"
+                class="rule-item"
+                :class="{ 'passed': rule.passed === true, 'failed': rule.passed === false }"
+              >
+                <svg v-if="rule.passed === true" class="rule-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <svg v-else-if="rule.passed === false" class="rule-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                <span v-else class="rule-dot"></span>
+                {{ rule.text }}
+              </span>
             </div>
           </div>
 
@@ -109,6 +156,15 @@ const handleSubmit = async () => {
                 placeholder="请再次输入新密码"
               />
             </div>
+          </div>
+
+          <div v-if="errorMsg" class="error-message">
+            <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {{ errorMsg }}
           </div>
 
           <button type="submit" class="submit-btn" :disabled="loading">
@@ -310,6 +366,62 @@ const handleSubmit = async () => {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.password-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  padding-left: 4px;
+}
+
+.rule-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #94a3b8;
+  transition: color 0.2s;
+}
+
+.rule-item.passed {
+  color: #22c55e;
+}
+
+.rule-item.failed {
+  color: #ef4444;
+}
+
+.rule-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.rule-dot {
+  width: 6px;
+  height: 6px;
+  background: #cbd5e1;
+  border-radius: 50%;
+  margin-right: 2px;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.error-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 @media (max-width: 480px) {
