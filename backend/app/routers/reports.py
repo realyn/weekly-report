@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import asyncio
+import logging
 from app.database import get_db, async_session
 from app.schemas.report import ReportCreate, ReportUpdate, ReportResponse
 from app.services import report_service
@@ -11,6 +12,7 @@ from app.models.user import User
 from app.models.report import ReportStatus
 
 router = APIRouter(prefix="/api/reports", tags=["周报"])
+logger = logging.getLogger(__name__)
 
 
 async def run_llm_analysis_background(year: int, week_num: int):
@@ -20,7 +22,7 @@ async def run_llm_analysis_background(year: int, week_num: int):
         async with async_session() as db:
             await trigger_llm_analysis(db, year, week_num)
     except Exception as e:
-        print(f"后台 LLM 分析失败: {e}")
+        logger.exception(f"后台 LLM 分析失败: {year}年第{week_num}周")
 
 
 @router.get("/current", response_model=Optional[ReportResponse])

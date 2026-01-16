@@ -322,9 +322,13 @@ async def remove_from_rejected(
 @router.post("/rebuild-embeddings")
 async def rebuild_embeddings(admin: User = Depends(get_current_admin)):
     """重建项目向量索引（管理员）"""
+    import logging
+    logger = logging.getLogger(__name__)
+
     extractor = get_project_extractor()
     try:
         await extractor.rebuild_embeddings()
         return {"code": 200, "message": "向量索引重建完成"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"重建失败: {str(e)}")
+        logger.exception("向量索引重建失败")
+        raise HTTPException(status_code=500, detail="重建失败，请稍后重试")

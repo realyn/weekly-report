@@ -144,6 +144,9 @@ async def manual_trigger_analysis(
     db: AsyncSession = Depends(get_db)
 ):
     """手动触发LLM项目分析（管理员）"""
+    import logging
+    logger = logging.getLogger(__name__)
+
     if not year or not week:
         year, week = get_current_week()
 
@@ -151,4 +154,5 @@ async def manual_trigger_analysis(
         await trigger_llm_analysis(db, year, week)
         return {"code": 200, "message": f"已触发 {year}年第{week}周 的项目分析"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
+        logger.exception(f"LLM分析失败: {year}年第{week}周")
+        raise HTTPException(status_code=500, detail="分析失败，请稍后重试")
