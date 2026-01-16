@@ -91,9 +91,9 @@ async def get_project_detail(name: str, admin: User = Depends(get_current_admin)
     """获取单个项目详情"""
     extractor = get_project_extractor()
     project = extractor.get_project(name)
-    if project:
-        return {"code": 200, "data": project}
-    raise HTTPException(status_code=404, detail="项目不存在")
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    return {"code": 200, "data": project}
 
 
 @router.post("/create")
@@ -104,16 +104,15 @@ async def create_project(
     """创建新项目"""
     extractor = get_project_extractor()
     sub_items = [{"name": s.name, "description": s.description} for s in data.sub_items]
-    success = extractor.create_project(
+    if not extractor.create_project(
         name=data.name,
         category=data.category,
         description=data.description,
         aliases=data.aliases,
         sub_items=sub_items
-    )
-    if success:
-        return {"code": 200, "message": f"项目「{data.name}」创建成功"}
-    raise HTTPException(status_code=400, detail="项目已存在")
+    ):
+        raise HTTPException(status_code=400, detail="项目已存在")
+    return {"code": 200, "message": f"项目「{data.name}」创建成功"}
 
 
 @router.put("/update/{name}")
@@ -125,13 +124,12 @@ async def update_project(
     """更新项目信息"""
     extractor = get_project_extractor()
     updates = data.model_dump(exclude_unset=True)
-    if "sub_items" in updates and updates["sub_items"] is not None:
+    if updates.get("sub_items") is not None:
         updates["sub_items"] = [{"name": s.name, "description": s.description} for s in data.sub_items]
 
-    success = extractor.update_project(name, updates)
-    if success:
-        return {"code": 200, "message": "更新成功"}
-    raise HTTPException(status_code=404, detail="项目不存在")
+    if not extractor.update_project(name, updates):
+        raise HTTPException(status_code=404, detail="项目不存在")
+    return {"code": 200, "message": "更新成功"}
 
 
 @router.put("/rename/{name}")
@@ -142,20 +140,18 @@ async def rename_project(
 ):
     """重命名项目"""
     extractor = get_project_extractor()
-    success = extractor.rename_project(name, data.new_name)
-    if success:
-        return {"code": 200, "message": f"已重命名为「{data.new_name}」"}
-    raise HTTPException(status_code=400, detail="重命名失败（项目不存在或新名称已被使用）")
+    if not extractor.rename_project(name, data.new_name):
+        raise HTTPException(status_code=400, detail="重命名失败（项目不存在或新名称已被使用）")
+    return {"code": 200, "message": f"已重命名为「{data.new_name}」"}
 
 
 @router.delete("/delete/{name}")
 async def delete_project(name: str, admin: User = Depends(get_current_admin)):
     """删除项目"""
     extractor = get_project_extractor()
-    success = extractor.delete_project(name)
-    if success:
-        return {"code": 200, "message": f"项目「{name}」已删除"}
-    raise HTTPException(status_code=404, detail="项目不存在")
+    if not extractor.delete_project(name):
+        raise HTTPException(status_code=404, detail="项目不存在")
+    return {"code": 200, "message": f"项目「{name}」已删除"}
 
 
 # ========== 子项目管理 ==========
@@ -168,10 +164,9 @@ async def add_sub_item(
 ):
     """添加子项目"""
     extractor = get_project_extractor()
-    success = extractor.add_sub_item(project_name, data.name, data.description)
-    if success:
-        return {"code": 200, "message": f"已添加子项目「{data.name}」"}
-    raise HTTPException(status_code=400, detail="添加失败（项目不存在或子项目已存在）")
+    if not extractor.add_sub_item(project_name, data.name, data.description):
+        raise HTTPException(status_code=400, detail="添加失败（项目不存在或子项目已存在）")
+    return {"code": 200, "message": f"已添加子项目「{data.name}」"}
 
 
 @router.put("/{project_name}/sub-items/{sub_name}")
@@ -184,10 +179,9 @@ async def update_sub_item(
     """更新子项目"""
     extractor = get_project_extractor()
     updates = data.model_dump(exclude_unset=True)
-    success = extractor.update_sub_item(project_name, sub_name, updates)
-    if success:
-        return {"code": 200, "message": "更新成功"}
-    raise HTTPException(status_code=404, detail="子项目不存在")
+    if not extractor.update_sub_item(project_name, sub_name, updates):
+        raise HTTPException(status_code=404, detail="子项目不存在")
+    return {"code": 200, "message": "更新成功"}
 
 
 @router.delete("/{project_name}/sub-items/{sub_name}")
@@ -198,10 +192,9 @@ async def remove_sub_item(
 ):
     """删除子项目"""
     extractor = get_project_extractor()
-    success = extractor.remove_sub_item(project_name, sub_name)
-    if success:
-        return {"code": 200, "message": f"已删除子项目「{sub_name}」"}
-    raise HTTPException(status_code=404, detail="子项目不存在")
+    if not extractor.remove_sub_item(project_name, sub_name):
+        raise HTTPException(status_code=404, detail="子项目不存在")
+    return {"code": 200, "message": f"已删除子项目「{sub_name}」"}
 
 
 # ========== 类别管理 ==========
@@ -218,20 +211,18 @@ async def list_categories(admin: User = Depends(get_current_admin)):
 async def add_category(data: CategoryRequest, admin: User = Depends(get_current_admin)):
     """添加项目类别"""
     extractor = get_project_extractor()
-    success = extractor.add_category(data.name)
-    if success:
-        return {"code": 200, "message": f"已添加类别「{data.name}」"}
-    raise HTTPException(status_code=400, detail="类别已存在")
+    if not extractor.add_category(data.name):
+        raise HTTPException(status_code=400, detail="类别已存在")
+    return {"code": 200, "message": f"已添加类别「{data.name}」"}
 
 
 @router.delete("/categories/{name}")
 async def remove_category(name: str, admin: User = Depends(get_current_admin)):
     """删除项目类别"""
     extractor = get_project_extractor()
-    success = extractor.remove_category(name)
-    if success:
-        return {"code": 200, "message": f"已删除类别「{name}」"}
-    raise HTTPException(status_code=404, detail="类别不存在")
+    if not extractor.remove_category(name):
+        raise HTTPException(status_code=404, detail="类别不存在")
+    return {"code": 200, "message": f"已删除类别「{name}」"}
 
 
 # ========== 待审核项目管理 ==========
@@ -259,10 +250,9 @@ async def approve_project(
 ):
     """确认待审核项目，加入正式列表"""
     extractor = get_project_extractor()
-    success = extractor.approve_pending_project(request.name, request.category)
-    if success:
-        return {"code": 200, "message": f"已将「{request.name}」添加到「{request.category}」类别"}
-    raise HTTPException(status_code=400, detail="项目不在待审核列表中")
+    if not extractor.approve_pending_project(request.name, request.category):
+        raise HTTPException(status_code=400, detail="项目不在待审核列表中")
+    return {"code": 200, "message": f"已将「{request.name}」添加到「{request.category}」类别"}
 
 
 @router.post("/merge")
@@ -272,10 +262,9 @@ async def merge_project(
 ):
     """将待审核项目合并到已有项目（作为别名）"""
     extractor = get_project_extractor()
-    success = extractor.merge_pending_to_existing(request.pending_name, request.target_project)
-    if success:
-        return {"code": 200, "message": f"已将「{request.pending_name}」作为「{request.target_project}」的别名"}
-    raise HTTPException(status_code=400, detail="操作失败：待审核项目不存在或目标项目不存在")
+    if not extractor.merge_pending_to_existing(request.pending_name, request.target_project):
+        raise HTTPException(status_code=400, detail="操作失败：待审核项目不存在或目标项目不存在")
+    return {"code": 200, "message": f"已将「{request.pending_name}」作为「{request.target_project}」的别名"}
 
 
 @router.post("/reject")
@@ -285,10 +274,9 @@ async def reject_project(
 ):
     """拒绝待审核项目（加入黑名单）"""
     extractor = get_project_extractor()
-    success = extractor.reject_pending_project(request.name)
-    if success:
-        return {"code": 200, "message": f"已将「{request.name}」加入黑名单"}
-    raise HTTPException(status_code=400, detail="项目不在待审核列表中")
+    if not extractor.reject_pending_project(request.name):
+        raise HTTPException(status_code=400, detail="项目不在待审核列表中")
+    return {"code": 200, "message": f"已将「{request.name}」加入黑名单"}
 
 
 @router.post("/alias")
@@ -298,10 +286,9 @@ async def add_alias(
 ):
     """为已有项目添加别名"""
     extractor = get_project_extractor()
-    success = extractor.add_alias(request.project_name, request.alias)
-    if success:
-        return {"code": 200, "message": f"已为「{request.project_name}」添加别名「{request.alias}」"}
-    raise HTTPException(status_code=400, detail="项目不存在")
+    if not extractor.add_alias(request.project_name, request.alias):
+        raise HTTPException(status_code=400, detail="项目不存在")
+    return {"code": 200, "message": f"已为「{request.project_name}」添加别名「{request.alias}」"}
 
 
 @router.delete("/rejected/{name}")
@@ -311,10 +298,9 @@ async def remove_from_rejected(
 ):
     """从黑名单中移除"""
     extractor = get_project_extractor()
-    success = extractor.remove_from_rejected(name)
-    if success:
-        return {"code": 200, "message": f"已将「{name}」从黑名单移除"}
-    raise HTTPException(status_code=400, detail="项目不在黑名单中")
+    if not extractor.remove_from_rejected(name):
+        raise HTTPException(status_code=400, detail="项目不在黑名单中")
+    return {"code": 200, "message": f"已将「{name}」从黑名单移除"}
 
 
 # ========== Embedding 管理 ==========
@@ -329,6 +315,6 @@ async def rebuild_embeddings(admin: User = Depends(get_current_admin)):
     try:
         await extractor.rebuild_embeddings()
         return {"code": 200, "message": "向量索引重建完成"}
-    except Exception as e:
+    except Exception:
         logger.exception("向量索引重建失败")
         raise HTTPException(status_code=500, detail="重建失败，请稍后重试")

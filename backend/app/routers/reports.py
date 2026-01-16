@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-import asyncio
 import logging
 from app.database import get_db, async_session
 from app.schemas.report import ReportCreate, ReportUpdate, ReportResponse
@@ -21,7 +20,7 @@ async def run_llm_analysis_background(year: int, week_num: int):
     try:
         async with async_session() as db:
             await trigger_llm_analysis(db, year, week_num)
-    except Exception as e:
+    except Exception:
         logger.exception(f"后台 LLM 分析失败: {year}年第{week_num}周")
 
 
@@ -42,8 +41,7 @@ async def get_report_deadline(
     current_user: User = Depends(get_current_user)
 ):
     """获取指定周的周报修改截止时间"""
-    if not year or not week:
-        year, week = get_current_week()
+    year, week = (year, week) if year and week else get_current_week()
     info = await get_deadline_info(year, week)
     return {
         "code": 200,
@@ -121,9 +119,6 @@ async def update_report(
         within_deadline = await is_within_deadline(report.year, report.week_num)
         if not within_deadline:
             raise HTTPException(status_code=400, detail="已超过修改截止时间，无法修改")
-
-    # 记录原状态
-    was_submitted = report.status == ReportStatus.submitted
 
     updated_report = await report_service.update_report(db, report, report_data)
 

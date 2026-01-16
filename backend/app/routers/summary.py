@@ -20,8 +20,7 @@ async def weekly_summary(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    if not year or not week:
-        year, week = get_current_week()
+    year, week = (year, week) if year and week else get_current_week()
     summary = await get_weekly_summary(db, year, week, current_user)
     return {"code": 200, "data": summary}
 
@@ -55,12 +54,9 @@ async def get_chart_data(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    if not year:
-        year, current_week = get_current_week()
-        end_week = end_week or current_week
-    else:
-        _, current_week = get_current_week()
-        end_week = end_week or current_week
+    current_year, current_week = get_current_week()
+    year = year or current_year
+    end_week = end_week or current_week
 
     # 确保周数范围有效
     start_week = max(1, min(start_week, 53))
@@ -78,8 +74,7 @@ async def get_dashboard(
     db: AsyncSession = Depends(get_db)
 ):
     """获取可视化面板数据"""
-    if not year or not week:
-        year, week = get_current_week()
+    year, week = (year, week) if year and week else get_current_week()
     data = await get_weekly_report_dashboard(db, year, week, current_user)
     return {"code": 200, "data": data}
 
@@ -101,12 +96,9 @@ async def get_latest_submitted_week(
     )
     row = result.first()
 
-    if row:
-        return {"code": 200, "data": {"year": row[0], "week": row[1]}}
-    else:
-        # 如果没有提交的周报，返回当前周
-        year, week = get_current_week()
-        return {"code": 200, "data": {"year": year, "week": week}}
+    # 如果没有提交的周报，返回当前周
+    year, week = (row[0], row[1]) if row else get_current_week()
+    return {"code": 200, "data": {"year": year, "week": week}}
 
 
 @router.get("/available-weeks")
@@ -129,9 +121,7 @@ async def get_available_weeks(
     # 返回格式: {year: [week1, week2, ...]}
     data = {}
     for year, week in rows:
-        if year not in data:
-            data[year] = []
-        data[year].append(week)
+        data.setdefault(year, []).append(week)
 
     return {"code": 200, "data": data}
 
@@ -147,12 +137,11 @@ async def manual_trigger_analysis(
     import logging
     logger = logging.getLogger(__name__)
 
-    if not year or not week:
-        year, week = get_current_week()
+    year, week = (year, week) if year and week else get_current_week()
 
     try:
         await trigger_llm_analysis(db, year, week)
         return {"code": 200, "message": f"已触发 {year}年第{week}周 的项目分析"}
-    except Exception as e:
+    except Exception:
         logger.exception(f"LLM分析失败: {year}年第{week}周")
         raise HTTPException(status_code=500, detail="分析失败，请稍后重试")
