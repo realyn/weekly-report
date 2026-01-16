@@ -26,11 +26,7 @@ const handleLogin = async () => {
   try {
     const { mustChangePassword } = await userStore.login(form.value.username, form.value.password)
     ElMessage.success({ message: '登录成功', duration: 1500 })
-    if (mustChangePassword) {
-      router.push('/change-password')
-    } else {
-      router.push('/')
-    }
+    router.push(mustChangePassword ? '/change-password' : '/')
   } catch (e) {
     errorMessage.value = e.response?.data?.detail || '登录失败，请重试'
   } finally {
