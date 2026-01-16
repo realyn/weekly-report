@@ -1,3 +1,5 @@
+import secrets
+import string
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -6,6 +8,12 @@ from app.schemas.user import UserCreate, UserUpdate, UserResponse
 from app.services.auth_service import create_user
 from app.utils.security import get_current_admin, get_password_hash
 from app.models.user import User
+
+
+def generate_temp_password(length: int = 10) -> str:
+    """生成临时随机密码"""
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 router = APIRouter(prefix="/api/admin/users", tags=["用户管理"])
 
@@ -79,7 +87,9 @@ async def reset_user_password(
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
 
-    # 重置为默认密码
-    user.password = get_password_hash("123456")
+    # 生成随机临时密码
+    temp_password = generate_temp_password()
+    user.password = get_password_hash(temp_password)
+    user.must_change_password = True  # 强制用户下次登录修改密码
     await db.commit()
-    return {"message": "密码已重置为 123456"}
+    return {"message": f"密码已重置为 {temp_password}，用户登录后需修改密码"}

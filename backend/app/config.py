@@ -1,18 +1,31 @@
+import warnings
 from pydantic_settings import BaseSettings
+from pydantic import model_validator
 from functools import lru_cache
+
+DEFAULT_SECRET_KEY = "your-secret-key-change-in-production"
 
 
 class Settings(BaseSettings):
     APP_NAME: str = "周报管理系统"
-    DEBUG: bool = True
+    DEBUG: bool = False  # 生产环境默认关闭
 
     # 数据库
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/weekly_report.db"
 
     # JWT
-    SECRET_KEY: str = "your-secret-key-change-in-production"
+    SECRET_KEY: str = DEFAULT_SECRET_KEY
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24小时
+
+    @model_validator(mode='after')
+    def check_secret_key(self):
+        if not self.DEBUG and self.SECRET_KEY == DEFAULT_SECRET_KEY:
+            warnings.warn(
+                "⚠️  安全警告: SECRET_KEY 使用默认值！请在 .env 中配置安全的密钥",
+                UserWarning
+            )
+        return self
 
     # 管理员初始密码
     ADMIN_PASSWORD: str = ""
