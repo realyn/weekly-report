@@ -348,7 +348,8 @@ async def get_weekly_report_dashboard(db: AsyncSession, year: int, week_num: int
             })
 
     # 项目参与度统计：优先使用 report_items 结构化数据
-    project_involvement = {}
+    project_involvement = {}  # 项目 -> 工作条目数
+    project_people = {}  # 项目 -> 参与人员集合
     work_categories = {}
     all_projects = set()
     has_structured_data = False
@@ -363,6 +364,10 @@ async def get_weekly_report_dashboard(db: AsyncSession, year: int, week_num: int
                 proj = item.project_name or "其他"
                 all_projects.add(proj)
                 project_involvement[proj] = project_involvement.get(proj, 0) + 1
+                # 记录参与人员
+                if proj not in project_people:
+                    project_people[proj] = set()
+                project_people[proj].add(user.real_name)
                 # 工作分类
                 category = categorize_work(item.content or "")
                 work_categories[category] = work_categories.get(category, 0) + 1
@@ -373,6 +378,10 @@ async def get_weekly_report_dashboard(db: AsyncSession, year: int, week_num: int
             for proj in projects:
                 all_projects.add(proj)
                 project_involvement[proj] = project_involvement.get(proj, 0) + 1
+                # 记录参与人员
+                if proj not in project_people:
+                    project_people[proj] = set()
+                project_people[proj].add(user.real_name)
 
             this_week_lines = [l.strip() for l in work_text.split("\n") if l.strip()]
             for line in this_week_lines:
@@ -395,8 +404,12 @@ async def get_weekly_report_dashboard(db: AsyncSession, year: int, week_num: int
         project_data = [{"name": k, "value": v} for k, v in sorted(project_involvement.items(), key=lambda x: -x[1])]
         category_data = [{"name": k, "value": v} for k, v in sorted(work_categories.items(), key=lambda x: -x[1])]
 
-    # 主要项目列表
-    main_projects = list(all_projects)[:6]
+    # 主要项目列表：按参与人数排序（人数相同则按工作条目数）
+    main_projects = sorted(
+        all_projects,
+        key=lambda p: (len(project_people.get(p, set())), project_involvement.get(p, 0)),
+        reverse=True
+    )[:6]
 
     return {
         "year": year,
