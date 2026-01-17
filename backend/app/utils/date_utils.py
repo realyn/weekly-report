@@ -28,7 +28,7 @@ def get_week_end_date(year: int, week_num: int) -> datetime:
 async def get_week_deadline(year: int, week_num: int) -> datetime:
     """
     获取指定周的周报修改截止时间
-    规则：该周最后一个工作日的 23:59:59
+    规则：恢复上班前一天中午 12:00
     使用数据库缓存的节假日数据，自动处理法定假日和调休
     """
     from app.services.holiday_service import get_week_deadline as holiday_get_deadline
@@ -57,7 +57,8 @@ async def get_deadline_info(year: int, week_num: int) -> dict:
     is_expired = now > deadline
 
     weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-    deadline_str = f"{deadline.month}月{deadline.day}日({weekday_names[deadline.weekday()]}) 23:59"
+    time_str = deadline.strftime("%H:%M")
+    deadline_str = f"{deadline.month}月{deadline.day}日({weekday_names[deadline.weekday()]}) {time_str}"
 
     if is_expired:
         remaining = "已过期"

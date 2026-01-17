@@ -146,18 +146,30 @@ DEEPSEEK_API_KEY=xxx
 DASHSCOPE_API_KEY=xxx
 ```
 
-## Git 仓库
+## 部署
+
+详细文档: `docs/deployment.md`
+
+### 一键部署（推荐）
+```bash
+./scripts/deploy-to-mcp2.sh        # 同步代码
+./scripts/deploy-to-mcp2.sh --db   # 同步代码 + 数据库（自动备份）
+```
+
+### 部署流程
+1. 推送代码 → `git push origin HEAD:mcp2`
+2. 服务器拉取 → `git reset --hard origin/mcp2`
+3. **前端构建** → `npm run build`（必须！）
+4. **后端重启** → 重启 uvicorn（必须！）
+
+> ⚠️ 代码同步后必须重建前端、重启后端，否则改动不生效
+
+### Git 仓库
 
 | 远程 | 地址 | 说明 |
 |------|------|------|
 | origin | git@github.com:realyn/weekly-report.git | GitHub 主仓库 |
 | mcp2 | mcp2:~/projects/weekly-report | 生产服务器 (SSH) |
-
-**同步命令**:
-```bash
-git push origin main && git push mcp2 main
-ssh mcp2 "cd ~/projects/weekly-report && git reset --hard HEAD"
-```
 
 ## 注意事项
 

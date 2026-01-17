@@ -19,6 +19,7 @@ data/documents/
 data/*.db
 backend/data/validation_images/
 backend/data/backups/
+backend/data/*.backup_*
 
 # OS
 .DS_Store
