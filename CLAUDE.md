@@ -146,6 +146,19 @@ DEEPSEEK_API_KEY=xxx
 DASHSCOPE_API_KEY=xxx
 ```
 
+## Git 仓库
+
+| 远程 | 地址 | 说明 |
+|------|------|------|
+| origin | git@github.com:realyn/weekly-report.git | GitHub 主仓库 |
+| mcp2 | mcp2:~/projects/weekly-report | 生产服务器 (SSH) |
+
+**同步命令**:
+```bash
+git push origin main && git push mcp2 main
+ssh mcp2 "cd ~/projects/weekly-report && git reset --hard HEAD"
+```
+
 ## 注意事项
 
 1. **周报状态**: draft(草稿) / submitted(已提交)，提交后不可修改
