@@ -116,18 +116,22 @@ sqlite3 data/weekly_report.db ".schema users" # 查看结构
 - Element Plus 组件库
 - API 调用统一放在 `src/api/` 目录
 
-## LLM 智能分析机制
+## LLM 智能解析机制
 
-**触发时机**: 用户提交周报时 (status=submitted)
+**触发时机**: 用户保存/提交周报时
 
 **流程**:
-1. `reports.py` 检测到提交 → 触发 `BackgroundTasks`
-2. `run_llm_analysis_background()` 异步执行
-3. `trigger_llm_analysis()` 调用 LLM 分析
-4. 结果缓存到 `weekly_summary.llm_analysis`
-5. 查询时 `get_cached_llm_analysis()` 读取缓存
+1. 用户填写周报 → 前端调用 `/parse-preview` 预览解析结果
+2. 用户确认或修正后保存 → 结构化数据存入 `report_items` 表
+3. 汇总统计直接使用 `report_items` 数据，不再重复调用 LLM
 
-**关键代码**: `backend/app/routers/reports.py:16-23`, `backend/app/services/summary_service.py:107-164`
+**关键代码**:
+- 解析服务: `backend/app/services/report_parser_service.py`
+- 汇总统计: `backend/app/services/summary_service.py:get_weekly_report_dashboard()`
+
+**模型选择（重要）**:
+- ✅ 推荐: `qwen-plus`、`deepseek-chat` — 解析准确率高
+- ❌ 禁用: `qwen-turbo`、`qwen-flash` — 项目匹配准确率低，会导致分类错误
 
 ## 环境变量 (.env)
 
