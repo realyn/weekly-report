@@ -169,8 +169,6 @@ onMounted(async () => {
   fetchReports()
 })
 
-const getStatusType = (status) => status === 'submitted' ? 'success' : 'info'
-const getStatusText = (status) => status === 'submitted' ? '已提交' : '草稿'
 </script>
 
 <template>
@@ -221,14 +219,13 @@ const getStatusText = (status) => status === 'submitted' ? '已提交' : '草稿
                 <th style="width: 140px">周期</th>
                 <th>本周工作</th>
                 <th>下周计划</th>
-                <th style="width: 100px">状态</th>
                 <th style="width: 160px">更新时间</th>
               </tr>
             </thead>
             <template v-for="group in groupedReports" :key="group.monthKey">
               <tbody>
                 <tr class="month-separator">
-                  <td colspan="5">
+                  <td colspan="4">
                     <div class="month-label">{{ group.monthLabel }}</div>
                   </td>
                 </tr>
@@ -244,11 +241,6 @@ const getStatusText = (status) => status === 'submitted' ? '已提交' : '草稿
                   </td>
                   <td class="work-cell">
                     <div class="work-content">{{ report.next_week_plan }}</div>
-                  </td>
-                  <td>
-                    <span class="status-badge" :class="getStatusType(report.status)">
-                      {{ getStatusText(report.status) }}
-                    </span>
                   </td>
                   <td class="time-cell">
                     {{ new Date(report.updated_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }}
@@ -459,24 +451,6 @@ const getStatusText = (status) => status === 'submitted' ? '已提交' : '草稿
   font-size: 13px;
   font-weight: 600;
   color: #94a3b8;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-badge.success {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.status-badge.info {
-  background: #e8f4fa;
-  color: #7aaed8;
 }
 
 .time-cell {
