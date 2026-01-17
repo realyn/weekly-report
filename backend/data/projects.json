@@ -91,10 +91,21 @@
         "写作助手",
         "智能写作",
         "智能问答",
-        "大河云知识库"
+        "大河云知识库",
+        "RAG",
+        "LLM",
+        "embedding",
+        "langgraph",
+        "大模型",
+        "大模型RAG",
+        "大语言模型",
+        "知识库检索",
+        "链路追踪",
+        "Agent",
+        "差旅助手"
       ],
       "category": "大河云",
-      "description": "大河云平台AI能力建设",
+      "description": "大河云平台AI能力建设，包含大语言模型技术应用",
       "sub_items": [
         {
           "name": "写作助手",
@@ -105,16 +116,24 @@
           "description": "AI海报、AI艺术字、AI人像"
         },
         {
-          "name": "知识库建设",
-          "description": ""
+          "name": "知识库/RAG",
+          "description": "知识库建设、RAG检索、Embedding服务"
         },
         {
           "name": "出行助手",
           "description": "出行规划"
         },
         {
+          "name": "差旅助手",
+          "description": "差旅规划"
+        },
+        {
           "name": "指挥中心",
           "description": "线索大屏"
+        },
+        {
+          "name": "Agent/langgraph",
+          "description": "智能体开发、工作流编排"
         }
       ]
     },
@@ -291,44 +310,6 @@
       "sub_items": []
     },
     {
-      "name": "大语言模型",
-      "aliases": [
-        "RAG",
-        "LLM",
-        "embedding",
-        "langgraph",
-        "大模型",
-        "大模型RAG",
-        "知识库检索",
-        "链路追踪",
-        "Agent"
-      ],
-      "category": "AI技术研究",
-      "description": "大语言模型技术研究与应用",
-      "sub_items": [
-        {
-          "name": "RAG系统",
-          "description": "知识库检索"
-        },
-        {
-          "name": "知识库建设",
-          "description": "文档处理与知识库构建"
-        },
-        {
-          "name": "Embedding服务",
-          "description": "文本向量化服务"
-        },
-        {
-          "name": "Agent开发",
-          "description": "智能体/自动化流程开发"
-        },
-        {
-          "name": "链路追踪",
-          "description": "LLM调用链路监控与调试"
-        }
-      ]
-    },
-    {
       "name": "运维",
       "aliases": [
         "服务器运维",
@@ -372,7 +353,6 @@
     "大河云",
     "运营商业务",
     "对外服务",
-    "AI技术研究",
     "技术运维",
     "其他"
   ],
