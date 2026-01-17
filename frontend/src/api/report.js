@@ -9,6 +9,10 @@ export const reportApi = {
     return request.get('/reports/years')
   },
 
+  getProjects() {
+    return request.get('/reports/projects')
+  },
+
   getList(year, weekNum) {
     const params = {}
     if (year) params.year = year
@@ -49,5 +53,18 @@ export const reportApi = {
     const params = {}
     if (year) params.year = year
     return request.get(`/reports/admin/user/${userId}`, { params })
+  },
+
+  // 提交新项目建议
+  suggestProject(projectName) {
+    return request.post('/projects/suggest', { name: projectName })
+  },
+
+  // 提交新子分类建议
+  suggestSubItem(projectName, subItemName) {
+    return request.post('/projects/suggest-sub-item', {
+      project_name: projectName,
+      sub_item_name: subItemName
+    })
   }
 }

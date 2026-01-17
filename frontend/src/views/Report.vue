@@ -18,6 +18,22 @@ const isLoading = ref(true)
 const parseResult = ref(null)
 const isParsing = ref(false)
 
+// 项目列表（用于下拉选择，包含子项）
+const projectList = ref([])
+
+// 项目选择弹窗状态
+const showProjectModal = ref(false)
+const projectModalTarget = ref(null) // { type: 'this_week', index: 0 }
+const projectModalStep = ref(1) // 1: 选择项目, 2: 选择子项
+const selectedProject = ref(null) // 当前选中的项目（用于显示子项）
+
+// 新增项目弹窗
+const showNewProjectDialog = ref(false)
+const newProjectName = ref('')
+const newProjectTarget = ref(null) // { type: 'this_week', index: 0 }
+const newProjectType = ref('project') // 'project' 或 'sub_item'
+const newProjectParent = ref(null) // 父项目名称（新增子分类时使用）
+
 // ISO 周计算函数
 const getISOWeekAndYear = (date) => {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
@@ -100,9 +116,10 @@ const taskCount = computed(() => countLines(thisWeekWork.value))
 const planCount = computed(() => countLines(nextWeekPlan.value))
 
 onMounted(async () => {
-  const [_, deadlineRes] = await Promise.all([
+  const [_, deadlineRes, projects] = await Promise.all([
     reportStore.fetchCurrentReport(),
-    reportApi.getDeadline(currentYear, currentWeek).catch(() => null)
+    reportApi.getDeadline(currentYear, currentWeek).catch(() => null),
+    reportApi.getProjects().catch(() => [])
   ])
 
   if (reportStore.currentReport) {
@@ -114,19 +131,37 @@ onMounted(async () => {
     deadlineInfo.value = deadlineRes.data
   }
 
+  // 加载项目列表
+  projectList.value = projects || []
+
   isLoading.value = false
 })
 
 const handleSave = async (status = 'draft') => {
   try {
-    await reportStore.saveReport({
+    const payload = {
       year: currentYear,
       week_num: currentWeek,
       this_week_work: thisWeekWork.value.trim(),
       next_week_plan: nextWeekPlan.value.trim(),
       status
-    })
+    }
+
+    // 如果有修正后的解析结果，一起发送
+    if (parseResult.value) {
+      if (parseResult.value.this_week_items?.length) {
+        payload.this_week_items = parseResult.value.this_week_items
+      }
+      if (parseResult.value.next_week_items?.length) {
+        payload.next_week_items = parseResult.value.next_week_items
+      }
+    }
+
+    await reportStore.saveReport(payload)
     ElMessage.success(status === 'submitted' ? '提交成功' : '保存成功')
+
+    // 清除解析结果
+    parseResult.value = null
 
     const deadlineRes = await reportApi.getDeadline(currentYear, currentWeek).catch(() => null)
     if (deadlineRes?.data) {
@@ -163,6 +198,132 @@ const handleParsePreview = async () => {
     isParsing.value = false
   }
 }
+
+// 更新解析结果中的项目名称
+const updateItemProject = (type, index, projectName) => {
+  if (!parseResult.value) return
+  const items = type === 'this_week' ? parseResult.value.this_week_items : parseResult.value.next_week_items
+  if (items && items[index]) {
+    items[index].project_name = projectName || null
+  }
+  closeDropdown()
+}
+
+// 打开项目选择弹窗
+const openProjectModal = (type, index) => {
+  projectModalTarget.value = { type, index }
+  projectModalStep.value = 1
+  selectedProject.value = null
+  showProjectModal.value = true
+}
+
+// 关闭项目选择弹窗
+const closeProjectModal = () => {
+  showProjectModal.value = false
+  projectModalTarget.value = null
+  projectModalStep.value = 1
+  selectedProject.value = null
+}
+
+// 选择项目（进入子项选择或直接确认）
+const handleProjectClick = (proj) => {
+  if (proj.sub_items?.length) {
+    // 有子项，进入第二步
+    selectedProject.value = proj
+    projectModalStep.value = 2
+  } else {
+    // 无子项，直接选择
+    confirmProjectSelection(proj.name)
+  }
+}
+
+// 选择子项
+const handleSubItemClick = (subItemName) => {
+  if (selectedProject.value) {
+    confirmProjectSelection(`${selectedProject.value.name}/${subItemName}`)
+  }
+}
+
+// 返回项目列表
+const backToProjectList = () => {
+  projectModalStep.value = 1
+  selectedProject.value = null
+}
+
+// 确认项目选择
+const confirmProjectSelection = (projectName) => {
+  if (projectModalTarget.value) {
+    updateItemProject(
+      projectModalTarget.value.type,
+      projectModalTarget.value.index,
+      projectName
+    )
+  }
+  closeProjectModal()
+}
+
+// 清除项目分类
+const clearProjectSelection = () => {
+  if (projectModalTarget.value) {
+    updateItemProject(
+      projectModalTarget.value.type,
+      projectModalTarget.value.index,
+      null
+    )
+  }
+  closeProjectModal()
+}
+
+// 从项目选择弹窗打开新增项目/子分类
+const openNewProjectFromModal = (type = 'project') => {
+  if (projectModalTarget.value) {
+    newProjectTarget.value = { ...projectModalTarget.value }
+  }
+  newProjectName.value = ''
+  newProjectType.value = type
+  newProjectParent.value = type === 'sub_item' ? selectedProject.value?.name : null
+  showProjectModal.value = false
+  showNewProjectDialog.value = true
+}
+
+// 提交新增项目/子分类建议
+const submitNewProject = async () => {
+  if (!newProjectName.value.trim()) {
+    ElMessage.warning(newProjectType.value === 'project' ? '请输入项目名称' : '请输入子分类名称')
+    return
+  }
+  try {
+    if (newProjectType.value === 'project') {
+      // 新增一级项目
+      await reportApi.suggestProject(newProjectName.value.trim())
+      ElMessage.success('项目建议已提交，等待管理员审核')
+      // 暂时使用该名称
+      if (newProjectTarget.value) {
+        updateItemProject(
+          newProjectTarget.value.type,
+          newProjectTarget.value.index,
+          newProjectName.value.trim()
+        )
+      }
+    } else {
+      // 新增子分类
+      await reportApi.suggestSubItem(newProjectParent.value, newProjectName.value.trim())
+      ElMessage.success('子分类建议已提交，等待管理员审核')
+      // 暂时使用 "父项目/子分类" 格式
+      if (newProjectTarget.value && newProjectParent.value) {
+        updateItemProject(
+          newProjectTarget.value.type,
+          newProjectTarget.value.index,
+          `${newProjectParent.value}/${newProjectName.value.trim()}`
+        )
+      }
+    }
+    showNewProjectDialog.value = false
+  } catch (e) {
+    ElMessage.error(e.response?.data?.detail || '提交失败，请稍后重试')
+  }
+}
+
 </script>
 
 <template>
@@ -275,40 +436,163 @@ const handleParsePreview = async () => {
       <!-- 解析结果预览 -->
       <div class="parse-preview" v-if="parseResult">
         <div class="preview-header">
-          <div class="preview-title">
-            <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
-              <path d="M22 4L12 14.01l-3-3"/>
-            </svg>
-            解析结果预览
+          <div class="preview-title-area">
+            <div class="preview-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+            </div>
+            <div class="preview-title-text">
+              <h3>解析结果预览</h3>
+              <p>系统已智能识别并分类您的工作内容</p>
+            </div>
           </div>
-          <button class="btn-close" @click="parseResult = null">×</button>
+          <button class="btn-close" @click="parseResult = null">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
         </div>
 
         <div class="preview-section" v-if="parseResult.this_week_items?.length">
-          <div class="section-label">本周工作 ({{ parseResult.this_week_items.length }}条)</div>
+          <div class="section-label">本周工作 <span class="item-count">({{ parseResult.this_week_items.length }}条)</span></div>
           <div class="parsed-items">
             <div class="parsed-item" v-for="(item, index) in parseResult.this_week_items" :key="'tw-' + index">
-              <span class="item-project" v-if="item.project_name">{{ item.project_name }}</span>
-              <span class="item-project no-project" v-else>未识别项目</span>
               <span class="item-content">{{ item.content }}</span>
+              <button
+                class="project-tag"
+                :class="{ 'no-project': !item.project_name }"
+                @click="openProjectModal('this_week', index)"
+              >
+                {{ item.project_name || '未分类' }}
+              </button>
             </div>
           </div>
         </div>
 
         <div class="preview-section" v-if="parseResult.next_week_items?.length">
-          <div class="section-label">下周计划 ({{ parseResult.next_week_items.length }}条)</div>
+          <div class="section-label">下周计划 <span class="item-count">({{ parseResult.next_week_items.length }}条)</span></div>
           <div class="parsed-items">
             <div class="parsed-item" v-for="(item, index) in parseResult.next_week_items" :key="'nw-' + index">
-              <span class="item-project" v-if="item.project_name">{{ item.project_name }}</span>
-              <span class="item-project no-project" v-else>未识别项目</span>
               <span class="item-content">{{ item.content }}</span>
+              <button
+                class="project-tag"
+                :class="{ 'no-project': !item.project_name }"
+                @click="openProjectModal('next_week', index)"
+              >
+                {{ item.project_name || '未分类' }}
+              </button>
             </div>
           </div>
         </div>
 
         <div class="preview-empty" v-if="!parseResult.this_week_items?.length && !parseResult.next_week_items?.length">
           暂无可解析的内容
+        </div>
+      </div>
+
+      <!-- 项目选择弹窗 -->
+      <div class="dialog-overlay" v-if="showProjectModal" @click="closeProjectModal">
+        <div class="dialog-content project-modal" @click.stop>
+          <div class="dialog-header">
+            <h3>
+              <button v-if="projectModalStep === 2" class="btn-back" @click="backToProjectList">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+              {{ projectModalStep === 1 ? '选择项目' : selectedProject?.name }}
+            </h3>
+            <button class="btn-close" @click="closeProjectModal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="dialog-body project-list-body">
+            <p class="dialog-hint">{{ projectModalStep === 1 ? '请选择该工作项所属的项目分类' : '请选择子分类' }}</p>
+
+            <!-- 第一步：项目列表 -->
+            <div class="project-list" v-if="projectModalStep === 1">
+              <div
+                class="project-item"
+                v-for="proj in projectList"
+                :key="proj.name"
+                @click="handleProjectClick(proj)"
+              >
+                <span class="project-name">{{ proj.name }}</span>
+                <svg v-if="proj.sub_items?.length" class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </div>
+              <div class="project-item add-new" @click="openNewProjectFromModal('project')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                <span>新增项目</span>
+              </div>
+            </div>
+
+            <!-- 第二步：子项列表 -->
+            <div class="project-list" v-if="projectModalStep === 2 && selectedProject">
+              <div
+                class="project-item"
+                @click="confirmProjectSelection(selectedProject.name)"
+              >
+                <span class="project-name">{{ selectedProject.name }}（总体）</span>
+              </div>
+              <div
+                class="project-item"
+                v-for="subItem in selectedProject.sub_items"
+                :key="subItem.name"
+                @click="handleSubItemClick(subItem.name)"
+              >
+                <span class="project-name">{{ subItem.name }}</span>
+              </div>
+              <div class="project-item add-new" @click="openNewProjectFromModal('sub_item')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                <span>新增子分类</span>
+              </div>
+            </div>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn btn-secondary" @click="clearProjectSelection">清除分类</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 新增项目/子分类弹窗 -->
+      <div class="dialog-overlay" v-if="showNewProjectDialog" @click="showNewProjectDialog = false">
+        <div class="dialog-content" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ newProjectType === 'project' ? '新增项目' : `新增子分类` }}</h3>
+            <button class="btn-close" @click="showNewProjectDialog = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="dialog-body">
+            <p class="dialog-hint" v-if="newProjectType === 'project'">
+              新增的项目将作为一级项目，提交后需等待管理员审核。
+            </p>
+            <p class="dialog-hint" v-else>
+              为「{{ newProjectParent }}」新增子分类，提交后需等待管理员审核。
+            </p>
+            <input
+              v-model="newProjectName"
+              type="text"
+              class="dialog-input"
+              :placeholder="newProjectType === 'project' ? '请输入项目名称' : '请输入子分类名称'"
+              @keyup.enter="submitNewProject"
+            />
+          </div>
+          <div class="dialog-footer">
+            <button class="btn btn-secondary" @click="showNewProjectDialog = false">取消</button>
+            <button class="btn btn-primary" @click="submitNewProject">提交建议</button>
+          </div>
         </div>
       </div>
 
@@ -678,12 +962,12 @@ const handleParsePreview = async () => {
 
 /* 解析结果预览 */
 .parse-preview {
-  background: white;
-  border-radius: 12px;
-  padding: 20px 24px;
+  background: #f8f8f8;
+  border-radius: 16px;
+  padding: 24px 28px;
   margin-bottom: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #d1fae5;
+  box-shadow: none;
+  border: 1px solid #ebebeb;
   animation: fadeIn 0.3s ease;
 }
 
@@ -695,47 +979,72 @@ const handleParsePreview = async () => {
 .preview-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f1f5f9;
+  align-items: flex-start;
+  margin-bottom: 24px;
 }
 
-.preview-title {
+.preview-title-area {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.preview-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e8e8e8;
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #059669;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.preview-title .title-icon {
-  color: #10b981;
+.preview-icon svg {
+  width: 18px;
+  height: 18px;
+  color: #444;
+}
+
+.preview-title-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.preview-title-text p {
+  margin: 0;
+  font-size: 13px;
+  color: #888;
 }
 
 .btn-close {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  background: #f1f5f9;
-  color: #64748b;
+  background: transparent;
+  color: #666;
   border-radius: 6px;
-  font-size: 18px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
+.btn-close svg {
+  width: 20px;
+  height: 20px;
+}
+
 .btn-close:hover {
-  background: #fef2f2;
-  color: #ef4444;
+  background: #f0f0f0;
+  color: #333;
 }
 
 .preview-section {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .preview-section:last-child {
@@ -743,57 +1052,277 @@ const handleParsePreview = async () => {
 }
 
 .section-label {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
-  color: #64748b;
-  margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: #1a1a1a;
+  margin-bottom: 12px;
+}
+
+.section-label .item-count {
+  font-weight: 400;
+  color: #888;
 }
 
 .parsed-items {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .parsed-item {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+  transition: all 0.2s ease;
+  min-height: 48px;
+  box-sizing: border-box;
 }
 
-.item-project {
-  flex-shrink: 0;
-  padding: 4px 10px;
-  background: #dbeafe;
-  color: #1d4ed8;
-  font-size: 12px;
-  font-weight: 500;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-
-.item-project.no-project {
-  background: #fef3c7;
-  color: #b45309;
+.parsed-item:hover {
+  border-color: #e8e8e8;
 }
 
 .item-content {
-  color: #334155;
+  flex: 1;
+  min-width: 0;
   font-size: 14px;
   line-height: 1.5;
+  color: #333;
+  word-break: break-word;
+  padding-top: 2px;
+}
+
+/* 项目标签 */
+.project-tag {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 400;
+  color: #333;
+  background: #f8fafc;
+  border: none;
+  border-radius: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+.project-tag:hover {
+  background: #eef2f6;
+}
+
+.project-tag.no-project {
+  background: #f8fafc;
+  color: #fa541c;
+}
+
+/* 项目选择弹窗 */
+.project-modal {
+  width: 420px;
+  max-width: 90vw;
+  border-radius: 16px;
+}
+
+.project-modal .dialog-header {
+  padding: 20px 24px 16px;
+  border-bottom: none;
+}
+
+.project-modal .dialog-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.project-modal .btn-close {
+  width: 32px;
+  height: 32px;
+}
+
+.project-modal .btn-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: #f5f5f5;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-back:hover {
+  background: #e5e5e5;
+}
+
+.btn-back svg {
+  width: 18px;
+  height: 18px;
+  color: #666;
+}
+
+.project-list-body {
+  padding: 0 !important;
+}
+
+.project-list-body .dialog-hint {
+  padding: 0 24px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #666;
+}
+
+.project-list {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 0 8px;
+}
+
+.project-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  margin-bottom: 4px;
+  font-size: 15px;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-radius: 8px;
+}
+
+.project-item:hover {
+  background: #f5f5f5;
+}
+
+.project-item .project-name {
+  flex: 1;
+}
+
+.project-item .arrow-icon {
+  width: 20px;
+  height: 20px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.project-item.add-new {
+  color: #1890ff;
+  gap: 10px;
+  justify-content: flex-start;
+  margin-top: 8px;
+  border-top: 1px solid #f0f0f0;
+  border-radius: 0;
+  padding-top: 16px;
+}
+
+.project-item.add-new svg {
+  width: 18px;
+  height: 18px;
+}
+
+.project-modal .dialog-footer {
+  padding: 16px 24px 20px;
+  border-top: none;
 }
 
 .preview-empty {
   text-align: center;
-  color: #94a3b8;
+  color: #999;
   font-size: 14px;
+  padding: 32px;
+}
+
+/* 新增项目弹窗 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  animation: fadeIn 0.2s ease;
+}
+
+.dialog-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.dialog-body {
   padding: 20px;
+}
+
+.dialog-hint {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  color: #888;
+  line-height: 1.5;
+}
+
+.dialog-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.dialog-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
 }
 
 /* 响应式 */

@@ -737,6 +737,31 @@ class ProjectExtractor:
         data = self.load_known_projects()
         return data.get("pending_projects", [])
 
+    def add_pending_project(self, name: str, suggested_by: str = "") -> bool:
+        """添加待审核项目（用户建议）"""
+        from datetime import datetime
+        data = self.load_known_projects()
+        pending = data.get("pending_projects", [])
+
+        # 检查是否已在待审核列表
+        if self.is_pending(name, pending):
+            return False
+
+        # 添加到待审核列表
+        pending.append({
+            "name": name,
+            "first_seen": datetime.now().strftime("%Y-%m-%d"),
+            "mentions": 1,
+            "source_texts": [],
+            "suggested_category": "其他",
+            "confidence": 1.0,
+            "suggested_by": suggested_by
+        })
+
+        data["pending_projects"] = pending
+        self.save_projects(data)
+        return True
+
     def approve_pending_project(self, name: str, category: str = "其他") -> bool:
         """确认待审核项目"""
         data = self.load_known_projects()
@@ -796,6 +821,79 @@ class ProjectExtractor:
         if name not in data.get("rejected", []):
             data.setdefault("rejected", []).append(name)
 
+        self.save_projects(data)
+        return True
+
+    def add_pending_sub_item(self, parent_project: str, sub_item_name: str, suggested_by: str = "") -> bool:
+        """添加待审核子分类（用户建议）"""
+        from datetime import datetime
+        data = self.load_known_projects()
+
+        # 检查父项目是否存在
+        parent = next((p for p in data.get("projects", []) if p["name"] == parent_project), None)
+        if not parent:
+            return False
+
+        # 检查子分类是否已存在
+        existing_sub_items = parent.get("sub_items", [])
+        for sub in existing_sub_items:
+            sub_name = sub.get("name") if isinstance(sub, dict) else sub
+            if sub_name.lower() == sub_item_name.lower():
+                return False  # 子分类已存在
+
+        # 检查是否已在待审核列表
+        pending = data.get("pending_projects", [])
+        for p in pending:
+            if (p.get("type") == "sub_item" and
+                p.get("parent_project") == parent_project and
+                p.get("name", "").lower() == sub_item_name.lower()):
+                return False  # 已在审核中
+
+        # 添加到待审核列表
+        pending.append({
+            "type": "sub_item",
+            "name": sub_item_name,
+            "parent_project": parent_project,
+            "first_seen": datetime.now().strftime("%Y-%m-%d"),
+            "suggested_by": suggested_by
+        })
+
+        data["pending_projects"] = pending
+        self.save_projects(data)
+        return True
+
+    def approve_pending_sub_item(self, parent_project: str, sub_item_name: str) -> bool:
+        """批准待审核子分类"""
+        data = self.load_known_projects()
+        pending = data.get("pending_projects", [])
+
+        # 找到待审核子分类
+        target = next((p for p in pending
+                       if p.get("type") == "sub_item" and
+                       p.get("parent_project") == parent_project and
+                       p.get("name") == sub_item_name), None)
+        if not target:
+            return False
+
+        # 找到父项目并添加子分类
+        for proj in data["projects"]:
+            if proj["name"] == parent_project:
+                if "sub_items" not in proj:
+                    proj["sub_items"] = []
+                # 添加为对象格式
+                proj["sub_items"].append({
+                    "name": sub_item_name,
+                    "description": ""
+                })
+                break
+        else:
+            return False
+
+        # 从待审核中移除
+        data["pending_projects"] = [p for p in pending
+                                    if not (p.get("type") == "sub_item" and
+                                            p.get("parent_project") == parent_project and
+                                            p.get("name") == sub_item_name)]
         self.save_projects(data)
         return True
 
