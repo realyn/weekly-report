@@ -131,7 +131,8 @@ sqlite3 data/weekly_report.db ".schema users" # 查看结构
 
 **模型选择（重要）**:
 - ✅ 推荐: `qwen-plus`、`deepseek-chat` — 解析准确率高
-- ❌ 禁用: `qwen-turbo`、`qwen-flash` — 项目匹配准确率低，会导致分类错误
+- ⚠️ 不建议: `qwen-flash` — 准确率一般，仅在成本敏感场景考虑
+- ❌ 禁止: `qwen-turbo` — 项目匹配准确率低，会导致分类错误
 
 ## 环境变量 (.env)
 

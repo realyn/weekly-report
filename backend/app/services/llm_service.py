@@ -178,7 +178,7 @@ class LLMService:
         messages.append({"role": "user", "content": prompt})
 
         payload = {
-            "model": "qwen-plus",  # 注意：不要使用 qwen-turbo/qwen-flash，准确率低
+            "model": "qwen-plus",  # 禁止使用 qwen-turbo，不建议 qwen-flash
             "messages": messages,
             "temperature": 0.3,
             "max_tokens": 2000
