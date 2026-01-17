@@ -14,6 +14,27 @@ echo "=========================================="
 echo "📦 部署到 mcp2"
 echo "=========================================="
 
+# 0. 检查未提交的更改
+if [[ -n $(git status --porcelain) ]]; then
+    echo ""
+    echo "⚠️  检测到未提交的更改:"
+    git status --short
+    echo ""
+    read -p "是否自动提交这些更改？(y/N): " auto_commit
+    if [[ "$auto_commit" == "y" || "$auto_commit" == "Y" ]]; then
+        read -p "请输入提交信息: " commit_msg
+        if [[ -z "$commit_msg" ]]; then
+            commit_msg="chore: 部署前自动提交"
+        fi
+        git add -A
+        git commit -m "$commit_msg"
+        echo "✅ 已提交更改"
+    else
+        echo "❌ 请先手动提交更改后再部署"
+        exit 1
+    fi
+fi
+
 # 1. 推送代码到 origin/mcp2
 echo ""
 echo "📤 [1/4] 推送代码到 origin/mcp2..."
