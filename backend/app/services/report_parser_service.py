@@ -22,16 +22,19 @@ class ReportParserService:
 
 解析规则：
 1. 识别每条具体的工作内容，拆分成独立条目
-2. 为每条工作匹配对应的项目名称（如果能识别的话）
-3. 如果工作内容无法识别出项目，project_name 设为 null
-4. 保持原始工作描述的完整性，不要丢失信息
-5. 去除无意义的序号、分隔符等
+2. **重要**：project_name 必须从已知项目列表中精确选择一个项目名称
+3. 根据工作内容、项目描述、子项名称和别名来判断归属哪个项目
+4. 如果工作内容无法明确归属任何项目，project_name 设为 null
+5. 保持原始工作描述的完整性，不要丢失信息
+6. 去除无意义的序号、分隔符等
 
 输出格式：必须严格按照 JSON 格式输出，不要有其他文字。"""
 
     PARSE_PROMPT_TEMPLATE = """请解析以下周报内容。
 
-已知项目列表（用于匹配）：
+**重要**：project_name 字段必须从以下项目列表中精确选择，不要自行创造项目名。
+
+已知项目列表：
 {known_projects}
 
 本周工作内容：
@@ -40,13 +43,13 @@ class ReportParserService:
 下周计划：
 {next_week_plan}
 
-请输出 JSON 格式：
+请输出 JSON 格式（project_name 必须是上述列表中的标准项目名，或 null）：
 {{
   "this_week_items": [
-    {{"project_name": "项目名或null", "content": "具体工作内容"}}
+    {{"project_name": "从列表中选择的标准项目名或null", "content": "具体工作内容"}}
   ],
   "next_week_items": [
-    {{"project_name": "项目名或null", "content": "具体计划内容"}}
+    {{"project_name": "从列表中选择的标准项目名或null", "content": "具体计划内容"}}
   ]
 }}"""
 
@@ -55,7 +58,7 @@ class ReportParserService:
         self.extractor = get_project_extractor()
 
     def _get_known_projects_str(self) -> str:
-        """获取已知项目列表字符串"""
+        """获取已知项目列表字符串，包含描述和子项"""
         data = self.extractor.load_known_projects()
         projects = data.get("projects", [])
 
@@ -63,9 +66,27 @@ class ReportParserService:
         for proj in projects:
             if proj.get("status") == "archived":
                 continue
+
+            name = proj['name']
+            desc = proj.get("description", "")
+            sub_items = proj.get("sub_items", [])
             aliases = proj.get("aliases", [])
-            alias_str = f"（别名：{', '.join(aliases)}）" if aliases else ""
-            lines.append(f"- {proj['name']}{alias_str}")
+
+            # 构建项目信息
+            info_parts = []
+            if desc:
+                info_parts.append(desc)
+            if sub_items:
+                sub_names = [s.get("name", "") for s in sub_items if s.get("name")]
+                if sub_names:
+                    info_parts.append(f"子项：{', '.join(sub_names)}")
+            if aliases:
+                info_parts.append(f"别名：{', '.join(aliases)}")
+
+            if info_parts:
+                lines.append(f"- {name}：{'; '.join(info_parts)}")
+            else:
+                lines.append(f"- {name}")
 
         return "\n".join(lines) if lines else "暂无"
 
@@ -81,30 +102,36 @@ class ReportParserService:
         return response.strip()
 
     def _match_project_name(self, raw_name: Optional[str]) -> Optional[str]:
-        """匹配项目名到标准名称"""
+        """
+        匹配项目名到标准名称
+
+        策略：只做精确匹配，信任 LLM 输出
+        - LLM 已被要求输出标准项目名
+        - 此方法仅验证是否为有效项目名或别名
+        - 如不匹配，返回原始值供用户在前端修正
+        """
         if not raw_name:
             return None
 
         data = self.extractor.load_known_projects()
         projects = data.get("projects", [])
 
-        raw_lower = raw_name.lower().strip()
+        raw_stripped = raw_name.strip()
+        raw_lower = raw_stripped.lower()
 
         for proj in projects:
             if proj.get("status") == "archived":
                 continue
-            # 精确匹配项目名
+            # 精确匹配标准项目名
             if raw_lower == proj["name"].lower():
                 return proj["name"]
-            # 匹配别名
+            # 精确匹配别名
             for alias in proj.get("aliases", []):
                 if raw_lower == alias.lower():
                     return proj["name"]
-                # 包含匹配
-                if alias.lower() in raw_lower and len(alias) >= 2:
-                    return proj["name"]
 
-        return raw_name  # 返回原始名称，允许新项目
+        # 不匹配时返回原始值，供用户在前端修正
+        return raw_stripped if raw_stripped else None
 
     async def parse_report_text(
         self,

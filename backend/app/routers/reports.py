@@ -39,6 +39,49 @@ async def run_report_parse_background(report_id: int, this_week_work: str, next_
         logger.exception(f"后台周报解析失败: report_id={report_id}")
 
 
+async def save_user_parsed_items(
+    db: AsyncSession,
+    report_id: int,
+    this_week_items: list,
+    next_week_items: list
+):
+    """保存用户修正后的解析结果"""
+    from sqlalchemy import delete
+    from app.models.report import ReportItem, ItemType
+
+    # 删除旧的 items
+    await db.execute(delete(ReportItem).where(ReportItem.report_id == report_id))
+
+    count = 0
+
+    # 保存本周工作
+    for i, item in enumerate(this_week_items or []):
+        report_item = ReportItem(
+            report_id=report_id,
+            item_type=ItemType.this_week,
+            project_name=item.project_name,
+            content=item.content,
+            sequence=i
+        )
+        db.add(report_item)
+        count += 1
+
+    # 保存下周计划
+    for i, item in enumerate(next_week_items or []):
+        report_item = ReportItem(
+            report_id=report_id,
+            item_type=ItemType.next_week,
+            project_name=item.project_name,
+            content=item.content,
+            sequence=i
+        )
+        db.add(report_item)
+        count += 1
+
+    await db.commit()
+    logger.info(f"保存用户修正的周报条目: report_id={report_id}, 共{count}条")
+
+
 @router.get("/years")
 async def get_available_years(
     current_user: User = Depends(get_current_user),
@@ -47,6 +90,33 @@ async def get_available_years(
     """获取当前用户有周报记录的年份列表"""
     years = await report_service.get_available_years(db, current_user.id)
     return years
+
+
+@router.get("/projects")
+async def get_project_list(
+    current_user: User = Depends(get_current_user)
+):
+    """获取项目列表（用于周报选择），包含子项信息"""
+    from app.services.llm_service import get_project_extractor
+    extractor = get_project_extractor()
+    data = extractor.load_known_projects()
+    projects = data.get("projects", [])
+
+    # 返回活跃项目的名称和子项
+    result = []
+    for proj in projects:
+        if proj.get("status") == "archived":
+            continue
+        item = {
+            "name": proj["name"],
+            "sub_items": [
+                {"name": sub.get("name", "")}
+                for sub in proj.get("sub_items", [])
+                if sub.get("name")
+            ]
+        }
+        result.append(item)
+    return result
 
 
 @router.get("/current", response_model=Optional[ReportResponse])
@@ -131,8 +201,16 @@ async def create_report(
         raise HTTPException(status_code=400, detail="该周周报已存在")
     report = await report_service.create_report(db, current_user.id, report_data)
 
-    # 后台解析周报内容为结构化条目
-    if report_data.this_week_work or report_data.next_week_plan:
+    # 保存解析结果：优先使用用户修正的结果
+    if report_data.this_week_items is not None or report_data.next_week_items is not None:
+        # 用户提供了修正后的解析结果，直接保存
+        await save_user_parsed_items(
+            db, report.id,
+            report_data.this_week_items,
+            report_data.next_week_items
+        )
+    elif report_data.this_week_work or report_data.next_week_plan:
+        # 用户未修正，后台自动解析
         background_tasks.add_task(
             run_report_parse_background,
             report.id,
@@ -167,8 +245,16 @@ async def update_report(
 
     updated_report = await report_service.update_report(db, report, report_data)
 
-    # 如果内容有更新，后台重新解析
-    if report_data.this_week_work is not None or report_data.next_week_plan is not None:
+    # 保存解析结果：优先使用用户修正的结果
+    if report_data.this_week_items is not None or report_data.next_week_items is not None:
+        # 用户提供了修正后的解析结果，直接保存
+        await save_user_parsed_items(
+            db, report_id,
+            report_data.this_week_items,
+            report_data.next_week_items
+        )
+    elif report_data.this_week_work is not None or report_data.next_week_plan is not None:
+        # 内容有更新但用户未修正，后台重新解析
         this_week = report_data.this_week_work if report_data.this_week_work is not None else report.this_week_work
         next_week = report_data.next_week_plan if report_data.next_week_plan is not None else report.next_week_plan
         background_tasks.add_task(

@@ -42,14 +42,26 @@ class ReportBase(BaseModel):
     next_week_plan: Optional[str] = Field(None, max_length=MAX_WORK_TEXT_LENGTH)
 
 
+class ParsedItemInput(BaseModel):
+    """用户修正后的解析条目"""
+    project_name: Optional[str] = None
+    content: str
+
+
 class ReportCreate(ReportBase):
     status: Optional[ReportStatus] = ReportStatus.draft
+    # 可选：用户修正后的解析结果（如果提供则直接使用，不再自动解析）
+    this_week_items: Optional[list[ParsedItemInput]] = None
+    next_week_items: Optional[list[ParsedItemInput]] = None
 
 
 class ReportUpdate(BaseModel):
     this_week_work: Optional[str] = Field(None, max_length=MAX_WORK_TEXT_LENGTH)
     next_week_plan: Optional[str] = Field(None, max_length=MAX_WORK_TEXT_LENGTH)
     status: Optional[ReportStatus] = None
+    # 可选：用户修正后的解析结果
+    this_week_items: Optional[list[ParsedItemInput]] = None
+    next_week_items: Optional[list[ParsedItemInput]] = None
 
 
 class ReportResponse(ReportBase):

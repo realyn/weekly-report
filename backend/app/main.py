@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db, async_session
-from app.routers import auth_router, reports_router, summary_router, admin_router, projects_router
+from app.routers import auth_router, reports_router, summary_router, admin_router, projects_router, project_suggest_router
 from app.tasks.scheduler import setup_scheduler
 from app.models.user import User, UserRole
 from app.models import holiday  # 确保节假日表被创建
@@ -75,6 +75,7 @@ app.include_router(reports_router)
 app.include_router(summary_router)
 app.include_router(admin_router)
 app.include_router(projects_router)
+app.include_router(project_suggest_router)
 
 
 @app.get("/")
