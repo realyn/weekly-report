@@ -38,6 +38,20 @@ async def holiday_data_update_job():
         logger.error(f"节假日数据更新失败: {e}")
 
 
+async def backup_database_job():
+    """数据库备份任务"""
+    from app.services.backup_service import create_backup
+    logger.info("开始执行数据库备份任务")
+    try:
+        backup_file = await create_backup()
+        if backup_file:
+            logger.info(f"数据库备份完成: {backup_file}")
+        else:
+            logger.error("数据库备份失败")
+    except Exception as e:
+        logger.error(f"数据库备份任务异常: {e}")
+
+
 def setup_scheduler():
     """设置定时任务"""
     # 每周六18:00执行汇总
@@ -56,4 +70,14 @@ def setup_scheduler():
         id="holiday_data_update",
         replace_existing=True
     )
+
+    # 每周日凌晨3:00执行数据库备份
+    scheduler.add_job(
+        backup_database_job,
+        CronTrigger(day_of_week="sun", hour=3, minute=0),
+        id="backup_database",
+        name="Weekly Database Backup",
+        replace_existing=True
+    )
+
     return scheduler

@@ -32,6 +32,14 @@ export const reportApi = {
     return request.get('/reports/deadline', { params: { year, week } })
   },
 
+  // 解析预览
+  parsePreview(thisWeekWork, nextWeekPlan) {
+    return request.post('/reports/parse-preview', {
+      this_week_work: thisWeekWork,
+      next_week_plan: nextWeekPlan
+    })
+  },
+
   // 管理员查看指定用户的周报
   getUserReports(userId, year) {
     const params = {}

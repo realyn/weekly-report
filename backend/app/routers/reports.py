@@ -3,8 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import logging
 from app.database import get_db, async_session
-from app.schemas.report import ReportCreate, ReportUpdate, ReportResponse
+from app.schemas.report import ReportCreate, ReportUpdate, ReportResponse, ParseResult, ParsePreviewRequest
 from app.services import report_service
+from app.services.report_parser_service import get_report_parser_service
 from app.utils.security import get_current_user, get_current_admin
 from app.utils.date_utils import get_current_week, is_within_deadline, get_deadline_info
 from app.models.user import User, UserRole
@@ -22,6 +23,20 @@ async def run_llm_analysis_background(year: int, week_num: int):
             await trigger_llm_analysis(db, year, week_num)
     except Exception:
         logger.exception(f"后台 LLM 分析失败: {year}年第{week_num}周")
+
+
+async def run_report_parse_background(report_id: int, this_week_work: str, next_week_plan: str):
+    """后台解析周报内容为结构化条目"""
+    from app.services.report_service import get_report_by_id
+    try:
+        parser = get_report_parser_service()
+        async with async_session() as db:
+            report = await get_report_by_id(db, report_id)
+            if report:
+                parse_result = await parser.parse_report_text(this_week_work, next_week_plan)
+                await parser.save_parsed_items(db, report, parse_result)
+    except Exception:
+        logger.exception(f"后台周报解析失败: report_id={report_id}")
 
 
 @router.get("/current", response_model=Optional[ReportResponse])
@@ -54,6 +69,17 @@ async def get_report_deadline(
             "remaining": info["remaining"]
         }
     }
+
+
+@router.post("/parse-preview", response_model=ParseResult)
+async def parse_preview(
+    request: ParsePreviewRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """解析周报文本预览（不保存）"""
+    parser = get_report_parser_service()
+    result = await parser.parse_report_text(request.this_week_work, request.next_week_plan)
+    return result
 
 
 @router.get("/", response_model=list[ReportResponse])
@@ -95,6 +121,15 @@ async def create_report(
         raise HTTPException(status_code=400, detail="该周周报已存在")
     report = await report_service.create_report(db, current_user.id, report_data)
 
+    # 后台解析周报内容为结构化条目
+    if report_data.this_week_work or report_data.next_week_plan:
+        background_tasks.add_task(
+            run_report_parse_background,
+            report.id,
+            report_data.this_week_work or "",
+            report_data.next_week_plan or ""
+        )
+
     # 如果是提交状态，触发后台 LLM 分析
     if report_data.status == ReportStatus.submitted:
         background_tasks.add_task(run_llm_analysis_background, report_data.year, report_data.week_num)
@@ -121,6 +156,17 @@ async def update_report(
             raise HTTPException(status_code=400, detail="已超过修改截止时间，无法修改")
 
     updated_report = await report_service.update_report(db, report, report_data)
+
+    # 如果内容有更新，后台重新解析
+    if report_data.this_week_work is not None or report_data.next_week_plan is not None:
+        this_week = report_data.this_week_work if report_data.this_week_work is not None else report.this_week_work
+        next_week = report_data.next_week_plan if report_data.next_week_plan is not None else report.next_week_plan
+        background_tasks.add_task(
+            run_report_parse_background,
+            report_id,
+            this_week or "",
+            next_week or ""
+        )
 
     # 如果状态变为提交（或重新提交），触发后台 LLM 分析
     if report_data.status == ReportStatus.submitted:

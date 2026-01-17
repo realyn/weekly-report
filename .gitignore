@@ -18,6 +18,7 @@ dist/
 data/documents/
 data/*.db
 backend/data/validation_images/
+backend/data/backups/
 
 # OS
 .DS_Store

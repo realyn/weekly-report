@@ -207,7 +207,17 @@ async def get_date_info_from_db(db: AsyncSession, query_date: date) -> dict:
 async def get_week_deadline_smart(db: AsyncSession, year: int, week_num: int) -> datetime:
     """
     智能计算周报截止时间
-    规则: 该周最后一个工作日的 23:59:59
+    规则: 恢复上班前一天中午12:00
+
+    逻辑：
+    1. 找到该周的周日（ISO 8601 周的最后一天）
+    2. 从周日后一天开始，向后找第一个工作日
+    3. 返回该工作日的前一天中午12:00
+
+    例：
+    - 正常周（周六日休息）→ 周日 12:00
+    - 周末+周一放假 → 周一 12:00
+    - 连续长假 → 假期最后一天 12:00
     """
     from app.models.holiday import DeadlineOverride
 
@@ -221,20 +231,30 @@ async def get_week_deadline_smart(db: AsyncSession, year: int, week_num: int) ->
     if override:
         return override.deadline
 
-    # 2. 使用 ISO 周标准计算周一
+    # 2. 使用 ISO 周标准计算周日（该周最后一天）
     target_monday = datetime.strptime(f"{year}-W{week_num:02d}-1", "%G-W%V-%u").date()
     target_sunday = target_monday + timedelta(days=6)
 
-    # 3. 从周日往前找最后一个工作日
-    deadline_date = target_sunday
-    for i in range(7):  # 从周日(6)到周一(0)
-        check_date = target_sunday - timedelta(days=i)
+    # 3. 从周日后一天开始，找第一个工作日
+    check_date = target_sunday + timedelta(days=1)  # 从下周一开始
+    max_check = 14  # 最多检查14天（防止无限循环）
+
+    for _ in range(max_check):
         info = await get_date_info_from_db(db, check_date)
         if info.get("is_workday", check_date.weekday() < 5):
-            deadline_date = check_date
-            break
+            # 找到第一个工作日，截止时间是前一天中午12点
+            deadline_date = check_date - timedelta(days=1)
+            return datetime.combine(
+                deadline_date,
+                datetime.strptime("12:00:00", "%H:%M:%S").time()
+            )
+        check_date += timedelta(days=1)
 
-    return datetime.combine(deadline_date, datetime.max.time().replace(microsecond=0))
+    # 兜底：周日中午12点
+    return datetime.combine(
+        target_sunday,
+        datetime.strptime("12:00:00", "%H:%M:%S").time()
+    )
 
 
 async def init_holiday_data():

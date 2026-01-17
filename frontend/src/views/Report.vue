@@ -6,16 +6,19 @@ import { ElMessage } from 'element-plus'
 
 const reportStore = useReportStore()
 
-// 本周工作条目列表
-const thisWeekItems = ref([{ content: '' }])
-// 下周计划条目列表
-const nextWeekItems = ref([{ content: '' }])
+// 整体文本输入
+const thisWeekWork = ref('')
+const nextWeekPlan = ref('')
 
 // 截止时间信息
 const deadlineInfo = ref(null)
 const isLoading = ref(true)
 
-// ISO 周计算函数（与Chart.vue和后端保持一致）
+// 解析预览
+const parseResult = ref(null)
+const isParsing = ref(false)
+
+// ISO 周计算函数
 const getISOWeekAndYear = (date) => {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
   d.setDate(d.getDate() + 4 - (d.getDay() || 7))
@@ -41,7 +44,6 @@ const getWeekInMonth = (isoYear, isoWeek) => {
   const month = monday.getMonth()
   const year = monday.getFullYear()
 
-  // 找到该月第一个周一
   const firstDayOfMonth = new Date(year, month, 1)
   let firstMonday = new Date(firstDayOfMonth)
   const dayOfWeek = firstDayOfMonth.getDay()
@@ -50,7 +52,6 @@ const getWeekInMonth = (isoYear, isoWeek) => {
     firstMonday.setDate(firstDayOfMonth.getDate() + daysUntilMonday)
   }
 
-  // 计算当前周是该月第几周
   const weekDiff = Math.round((monday - firstMonday) / (7 * 24 * 60 * 60 * 1000))
   return weekDiff + 1
 }
@@ -69,7 +70,7 @@ const weekSunday = computed(() => {
   return sunday
 })
 
-// 周所属的月份（以周一所在月份为准）
+// 周所属的月份
 const weekMonth = computed(() => weekMonday.value.getMonth() + 1)
 
 // 周在月份中的序号
@@ -83,42 +84,30 @@ const dateRangeStr = computed(() => {
 
 const isSubmitted = computed(() => reportStore.currentReport?.status === 'submitted')
 
-// 是否可以编辑（未提交 或 已提交但未过截止时间）
+// 是否可以编辑
 const canEdit = computed(() => {
   if (!isSubmitted.value) return true
   return deadlineInfo.value && !deadlineInfo.value.is_expired
 })
 
-// 将字符串转换为条目数组
-const parseToItems = (text) => {
-  if (!text || !text.trim()) return [{ content: '' }]
-  const lines = text.split('\n').filter(l => l.trim())
-  if (lines.length === 0) return [{ content: '' }]
-  return lines.map(line => {
-    // 去除开头的序号（如 "1. " 或 "1、" 或 "1，"）
-    const cleaned = line.replace(/^\d+[.、，,]\s*/, '').trim()
-    return { content: cleaned }
-  })
+// 统计行数（非空行）
+const countLines = (text) => {
+  if (!text || !text.trim()) return 0
+  return text.split('\n').filter(l => l.trim()).length
 }
 
-// 将条目数组转换为带序号的字符串
-const itemsToString = (items) => {
-  return items
-    .filter(item => item.content.trim())
-    .map((item, index) => `${index + 1}. ${item.content.trim()}`)
-    .join('\n')
-}
+const taskCount = computed(() => countLines(thisWeekWork.value))
+const planCount = computed(() => countLines(nextWeekPlan.value))
 
 onMounted(async () => {
-  // 并行获取周报和截止时间
   const [_, deadlineRes] = await Promise.all([
     reportStore.fetchCurrentReport(),
     reportApi.getDeadline(currentYear, currentWeek).catch(() => null)
   ])
 
   if (reportStore.currentReport) {
-    thisWeekItems.value = parseToItems(reportStore.currentReport.this_week_work)
-    nextWeekItems.value = parseToItems(reportStore.currentReport.next_week_plan)
+    thisWeekWork.value = reportStore.currentReport.this_week_work || ''
+    nextWeekPlan.value = reportStore.currentReport.next_week_plan || ''
   }
 
   if (deadlineRes?.data) {
@@ -133,13 +122,12 @@ const handleSave = async (status = 'draft') => {
     await reportStore.saveReport({
       year: currentYear,
       week_num: currentWeek,
-      this_week_work: itemsToString(thisWeekItems.value),
-      next_week_plan: itemsToString(nextWeekItems.value),
+      this_week_work: thisWeekWork.value.trim(),
+      next_week_plan: nextWeekPlan.value.trim(),
       status
     })
     ElMessage.success(status === 'submitted' ? '提交成功' : '保存成功')
 
-    // 刷新截止时间信息
     const deadlineRes = await reportApi.getDeadline(currentYear, currentWeek).catch(() => null)
     if (deadlineRes?.data) {
       deadlineInfo.value = deadlineRes.data
@@ -149,34 +137,31 @@ const handleSave = async (status = 'draft') => {
   }
 }
 
-// 添加条目
-const addItem = (list) => {
-  list.push({ content: '' })
-}
-
-// 删除条目
-const removeItem = (list, index) => {
-  if (list.length > 1) {
-    list.splice(index, 1)
-  } else {
-    list[0].content = ''
-  }
-}
-
-// 计算有效任务数
-const taskCount = computed(() => {
-  return thisWeekItems.value.filter(item => item.content.trim()).length
-})
-
-const planCount = computed(() => {
-  return nextWeekItems.value.filter(item => item.content.trim()).length
-})
-
 // 重置表单
 const handleReset = () => {
-  thisWeekItems.value = [{ content: '' }]
-  nextWeekItems.value = [{ content: '' }]
+  thisWeekWork.value = ''
+  nextWeekPlan.value = ''
+  parseResult.value = null
   ElMessage.info('已重置')
+}
+
+// 解析预览
+const handleParsePreview = async () => {
+  if (!thisWeekWork.value.trim() && !nextWeekPlan.value.trim()) {
+    ElMessage.warning('请先输入内容')
+    return
+  }
+
+  isParsing.value = true
+  try {
+    const res = await reportApi.parsePreview(thisWeekWork.value, nextWeekPlan.value)
+    parseResult.value = res.data || res
+    ElMessage.success('解析完成')
+  } catch (e) {
+    ElMessage.error('解析失败，请稍后重试')
+  } finally {
+    isParsing.value = false
+  }
 }
 </script>
 
@@ -220,38 +205,28 @@ const handleReset = () => {
             </svg>
             本周工作内容
           </div>
-          <button
-            v-if="canEdit"
-            class="add-btn"
-            @click="addItem(thisWeekItems)"
-          >
-            <span>+</span> 添加条目
-          </button>
+          <span class="input-hint">每行一条，系统会自动识别项目</span>
         </div>
 
-        <div class="items-list">
-          <div
-            v-for="(item, index) in thisWeekItems"
-            :key="'this-' + index"
-            class="item-row"
-          >
-            <span class="item-number">{{ index + 1 }}</span>
-            <input
-              v-model="item.content"
-              type="text"
-              class="item-input"
-              :placeholder="index === 0 ? '例如：一省一报系统功能完善' : '输入工作内容...'"
-              :disabled="!canEdit"
-            />
-            <button
-              v-if="canEdit && thisWeekItems.length > 1"
-              class="remove-btn"
-              @click="removeItem(thisWeekItems, index)"
-            >
-              ×
-            </button>
-          </div>
-        </div>
+        <textarea
+          v-model="thisWeekWork"
+          class="content-textarea"
+          :placeholder="`推荐格式（按项目分组）：
+
+【一省一报系统】
+完成功能优化
+修复登录问题
+
+【大河云AI】
+升级需求讨论
+接口联调测试
+
+也可以简单列出：
+1. 完成xx功能开发
+2. 参加xx会议`"
+          :disabled="!canEdit"
+          rows="8"
+        ></textarea>
       </div>
 
       <!-- 下周工作计划 -->
@@ -264,37 +239,76 @@ const handleReset = () => {
             </svg>
             下周工作计划
           </div>
-          <button
-            v-if="canEdit"
-            class="add-btn"
-            @click="addItem(nextWeekItems)"
-          >
-            <span>+</span> 添加条目
-          </button>
+          <span class="input-hint">每行一条，系统会自动识别项目</span>
         </div>
 
-        <div class="items-list">
-          <div
-            v-for="(item, index) in nextWeekItems"
-            :key="'next-' + index"
-            class="item-row"
-          >
-            <span class="item-number">{{ index + 1 }}</span>
-            <input
-              v-model="item.content"
-              type="text"
-              class="item-input"
-              :placeholder="index === 0 ? '例如：完成系统测试' : '输入计划内容...'"
-              :disabled="!canEdit"
-            />
-            <button
-              v-if="canEdit && nextWeekItems.length > 1"
-              class="remove-btn"
-              @click="removeItem(nextWeekItems, index)"
-            >
-              ×
-            </button>
+        <textarea
+          v-model="nextWeekPlan"
+          class="content-textarea"
+          :placeholder="`推荐格式（按项目分组）：
+
+【清明上河图】
+网站更新
+内容维护
+
+【通用】
+编写接口文档
+参加技术评审`"
+          :disabled="!canEdit"
+          rows="6"
+        ></textarea>
+      </div>
+
+      <!-- 解析预览按钮 -->
+      <div class="parse-action" v-if="canEdit">
+        <button class="btn btn-parse" @click="handleParsePreview" :disabled="isParsing">
+          <svg v-if="!isParsing" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <span v-else class="loading-spinner"></span>
+          {{ isParsing ? '解析中...' : '预览解析结果' }}
+        </button>
+        <span class="parse-hint">点击查看系统如何识别您的工作内容</span>
+      </div>
+
+      <!-- 解析结果预览 -->
+      <div class="parse-preview" v-if="parseResult">
+        <div class="preview-header">
+          <div class="preview-title">
+            <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+              <path d="M22 4L12 14.01l-3-3"/>
+            </svg>
+            解析结果预览
           </div>
+          <button class="btn-close" @click="parseResult = null">×</button>
+        </div>
+
+        <div class="preview-section" v-if="parseResult.this_week_items?.length">
+          <div class="section-label">本周工作 ({{ parseResult.this_week_items.length }}条)</div>
+          <div class="parsed-items">
+            <div class="parsed-item" v-for="(item, index) in parseResult.this_week_items" :key="'tw-' + index">
+              <span class="item-project" v-if="item.project_name">{{ item.project_name }}</span>
+              <span class="item-project no-project" v-else>未识别项目</span>
+              <span class="item-content">{{ item.content }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="preview-section" v-if="parseResult.next_week_items?.length">
+          <div class="section-label">下周计划 ({{ parseResult.next_week_items.length }}条)</div>
+          <div class="parsed-items">
+            <div class="parsed-item" v-for="(item, index) in parseResult.next_week_items" :key="'nw-' + index">
+              <span class="item-project" v-if="item.project_name">{{ item.project_name }}</span>
+              <span class="item-project no-project" v-else>未识别项目</span>
+              <span class="item-content">{{ item.content }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="preview-empty" v-if="!parseResult.this_week_items?.length && !parseResult.next_week_items?.length">
+          暂无可解析的内容
         </div>
       </div>
 
@@ -339,7 +353,6 @@ const handleReset = () => {
 </template>
 
 <style scoped>
-/* v0.app 风格 */
 .page-container {
   min-height: calc(100vh - 64px);
   padding: 24px;
@@ -445,7 +458,7 @@ const handleReset = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   padding-bottom: 16px;
   border-bottom: 1px solid #f1f5f9;
 }
@@ -467,103 +480,40 @@ const handleReset = () => {
   color: #94a3b8;
 }
 
-.add-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #64748b;
+.input-hint {
   font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  color: #94a3b8;
 }
 
-.add-btn:hover {
-  border-color: #7aaed8;
-  color: #7aaed8;
-  background: #e8f4fa;
-}
-
-.add-btn span {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-/* 条目列表 */
-.items-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.item-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.item-number {
-  min-width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #e2e8f0;
-  color: #64748b;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.item-input {
-  flex: 1;
-  padding: 12px 16px;
+/* 文本输入框 */
+.content-textarea {
+  width: 100%;
+  padding: 16px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
   transition: all 0.2s ease;
   background: #f8fafc;
+  font-family: inherit;
 }
 
-.item-input:focus {
+.content-textarea:focus {
   outline: none;
   border-color: #7aaed8;
   background: white;
   box-shadow: 0 0 0 3px rgba(99, 176, 221, 0.15);
 }
 
-.item-input:disabled {
+.content-textarea:disabled {
   background: #f1f5f9;
   color: #64748b;
   cursor: not-allowed;
 }
 
-.item-input::placeholder {
+.content-textarea::placeholder {
   color: #94a3b8;
-}
-
-.remove-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 6px;
-  background: #fef2f2;
-  color: #ef4444;
-  font-size: 18px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.remove-btn:hover {
-  background: #fee2e2;
 }
 
 /* 操作按钮 */
@@ -649,7 +599,6 @@ const handleReset = () => {
   margin: 0;
 }
 
-/* 可编辑状态 */
 .submitted-notice.editable {
   background: #fffbeb;
   border-color: #fde68a;
@@ -663,7 +612,6 @@ const handleReset = () => {
   color: #d97706;
 }
 
-/* 已过期状态 */
 .submitted-notice.expired {
   background: #f8fafc;
   border-color: #e2e8f0;
@@ -671,6 +619,181 @@ const handleReset = () => {
 
 .submitted-notice.expired .notice-text strong {
   color: #64748b;
+}
+
+/* 解析预览按钮区域 */
+.parse-action {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 16px 24px;
+  background: #f0f9ff;
+  border-radius: 12px;
+  border: 1px dashed #7aaed8;
+}
+
+.btn-parse {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: white;
+  color: #7aaed8;
+  border: 1px solid #7aaed8;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-parse:hover:not(:disabled) {
+  background: #7aaed8;
+  color: white;
+}
+
+.btn-parse:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #7aaed8;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.parse-hint {
+  color: #64748b;
+  font-size: 13px;
+}
+
+/* 解析结果预览 */
+.parse-preview {
+  background: white;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #d1fae5;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.preview-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #059669;
+}
+
+.preview-title .title-icon {
+  color: #10b981;
+}
+
+.btn-close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  border-radius: 6px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-close:hover {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.preview-section {
+  margin-bottom: 16px;
+}
+
+.preview-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.parsed-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.parsed-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.item-project {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.item-project.no-project {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.item-content {
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.preview-empty {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+  padding: 20px;
 }
 
 /* 响应式 */
@@ -731,21 +854,8 @@ const handleReset = () => {
 
   .card-header {
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     align-items: flex-start;
-  }
-
-  .add-btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .item-row {
-    flex-wrap: wrap;
-  }
-
-  .item-input {
-    width: calc(100% - 80px);
   }
 
   .action-bar {

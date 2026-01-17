@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from typing import Optional
 from app.models.report import Report
 from app.models.user import User
@@ -7,13 +8,19 @@ from app.schemas.report import ReportCreate, ReportUpdate
 
 
 async def get_report_by_id(db: AsyncSession, report_id: int) -> Optional[Report]:
-    result = await db.execute(select(Report).where(Report.id == report_id))
+    result = await db.execute(
+        select(Report)
+        .options(selectinload(Report.items))
+        .where(Report.id == report_id)
+    )
     return result.scalar_one_or_none()
 
 
 async def get_user_report(db: AsyncSession, user_id: int, year: int, week_num: int) -> Optional[Report]:
     result = await db.execute(
-        select(Report).where(
+        select(Report)
+        .options(selectinload(Report.items))
+        .where(
             Report.user_id == user_id,
             Report.year == year,
             Report.week_num == week_num
@@ -23,7 +30,7 @@ async def get_user_report(db: AsyncSession, user_id: int, year: int, week_num: i
 
 
 async def get_reports(db: AsyncSession, year: int, week_num: Optional[int] = None, user_id: Optional[int] = None):
-    query = select(Report).where(Report.year == year)
+    query = select(Report).options(selectinload(Report.items)).where(Report.year == year)
     if week_num:
         query = query.where(Report.week_num == week_num)
     if user_id:

@@ -6,19 +6,20 @@
         "清图网站",
         "清图",
         "清明上河图网站",
-        "科传",
-        "科传系统",
-        "科传合同"
+        "清图管理系统",
+        "清图大屏",
+        "清图后台",
+        "清图图谱"
       ],
       "category": "文旅文化",
       "description": "清明上河图数字化文化项目",
       "sub_items": [
         {
-          "name": "河南开封科技传媒学院合作",
-          "description": "科传合作"
+          "name": "管理系统",
+          "description": "清图后台管理"
         },
         {
-          "name": "十二时辰制作",
+          "name": "大屏展示",
           "description": ""
         },
         {
@@ -26,46 +27,45 @@
           "description": ""
         },
         {
-          "name": "大屏展示",
-          "description": ""
-        },
-        {
           "name": "官网开发",
-          "description": "清明上河图官网开发"
+          "description": "清明上河图官网"
         },
         {
           "name": "XR内容",
           "description": ""
+        },
+        {
+          "name": "科传合作",
+          "description": "河南开封科技传媒学院合作"
         }
       ]
     },
     {
-      "name": "甲骨文",
+      "name": "甲骨文XR",
       "aliases": [
-        "原力",
-        "原力平台",
+        "甲骨文",
         "了不起的甲骨文",
         "甲骨文项目",
+        "原力",
+        "原力合作",
         "阜民里",
-        "阜民里项目"
+        "阜民里项目",
+        "安阳XR",
+        "安阳落地"
       ],
       "category": "文旅文化",
-      "description": "甲骨文数字化文化项目",
+      "description": "甲骨文XR数字化文化项目",
       "sub_items": [
         {
-          "name": "原力平台",
+          "name": "原力合作",
           "description": ""
         },
         {
-          "name": "VR内容制作",
+          "name": "安阳落地运营",
           "description": ""
         },
         {
-          "name": "安阳XR落地",
-          "description": ""
-        },
-        {
-          "name": "阜民里项目",
+          "name": "阜民里落地运营",
           "description": ""
         }
       ]
@@ -87,38 +87,34 @@
         "出行",
         "出行规划",
         "指挥中心",
-        "指挥"
+        "指挥",
+        "写作助手",
+        "智能写作",
+        "智能问答",
+        "大河云知识库"
       ],
       "category": "大河云",
       "description": "大河云平台AI能力建设",
       "sub_items": [
         {
+          "name": "写作助手",
+          "description": "智能写作、智能问答"
+        },
+        {
+          "name": "生图模块",
+          "description": "AI海报、AI艺术字、AI人像"
+        },
+        {
           "name": "知识库建设",
           "description": ""
         },
         {
-          "name": "写作助手",
-          "description": ""
-        },
-        {
-          "name": "检索入口",
-          "description": ""
-        },
-        {
-          "name": "生图模块",
-          "description": ""
-        },
-        {
-          "name": "线索大屏",
-          "description": ""
-        },
-        {
           "name": "出行助手",
-          "description": ""
+          "description": "出行规划"
         },
         {
           "name": "指挥中心",
-          "description": ""
+          "description": "线索大屏"
         }
       ]
     },
@@ -136,7 +132,7 @@
         "OCR服务",
         "文字识别"
       ],
-      "category": "业务系统",
+      "category": "大河云",
       "description": "集团广告业务管理系统",
       "sub_items": [
         {
@@ -154,17 +150,6 @@
       ]
     },
     {
-      "name": "办公网系统",
-      "aliases": [
-        "办公网",
-        "OA",
-        "办公系统"
-      ],
-      "category": "业务系统",
-      "description": "集团办公网系统",
-      "sub_items": []
-    },
-    {
       "name": "一省一报系统",
       "aliases": [
         "一省一报"
@@ -178,7 +163,8 @@
       "aliases": [
         "短信",
         "短信服务",
-        "5G消息"
+        "5G消息",
+        "5G消息项目"
       ],
       "category": "运营商业务",
       "description": "运营商短信/5G消息平台",
@@ -187,20 +173,121 @@
     {
       "name": "新界平台",
       "aliases": [
-        "新界"
+        "新界",
+        "手机报新界",
+        "新界后台"
       ],
       "category": "运营商业务",
       "description": "面向C端用户的Web App",
+      "sub_items": [
+        {
+          "name": "专题可视化",
+          "description": ""
+        },
+        {
+          "name": "地市审核",
+          "description": "地市审核模块"
+        },
+        {
+          "name": "健康科普",
+          "description": "健康科普栏目、健康科普专题"
+        },
+        {
+          "name": "资讯栏目",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "兴港投资",
+      "aliases": [
+        "兴港"
+      ],
+      "category": "对外服务",
+      "description": "兴港投资小程序/官网",
+      "sub_items": []
+    },
+    {
+      "name": "航空港投资集团官网",
+      "aliases": [
+        "航空港投资",
+        "航空港投资官网"
+      ],
+      "category": "对外服务",
+      "description": "航空港投资集团官网项目",
+      "sub_items": []
+    },
+    {
+      "name": "潞安化工电子报",
+      "aliases": [
+        "潞安化工",
+        "潞安电子报"
+      ],
+      "category": "对外服务",
+      "description": "潞安化工电子报项目",
+      "sub_items": []
+    },
+    {
+      "name": "文明航空港",
+      "aliases": [
+        "文明航空港区",
+        "文明航空港区项目"
+      ],
+      "category": "对外服务",
+      "description": "文明航空港区项目",
+      "sub_items": []
+    },
+    {
+      "name": "医保局短信平台",
+      "aliases": [
+        "医保局",
+        "医保局短信",
+        "医保短信"
+      ],
+      "category": "对外服务",
+      "description": "医保局短信发送平台",
+      "sub_items": []
+    },
+    {
+      "name": "司法厅答题",
+      "aliases": [
+        "司法厅",
+        "司法厅答题项目",
+        "司法厅H5"
+      ],
+      "category": "对外服务",
+      "description": "司法厅答题活动H5",
+      "sub_items": []
+    },
+    {
+      "name": "烽火照中原",
+      "aliases": [
+        "烽火"
+      ],
+      "category": "对外服务",
+      "description": "烽火照中原H5活动",
+      "sub_items": []
+    },
+    {
+      "name": "河南本地辟谣",
+      "aliases": [
+        "辟谣",
+        "本地辟谣"
+      ],
+      "category": "对外服务",
+      "description": "河南本地辟谣H5",
       "sub_items": []
     },
     {
       "name": "智慧教育平台",
       "aliases": [
         "智慧教育",
-        "红干院"
+        "红干院",
+        "红旗渠干部学院",
+        "红旗渠"
       ],
-      "category": "教育培训",
-      "description": "干部学院智慧教育管理平台，红旗渠干部管理学院等",
+      "category": "对外服务",
+      "description": "红旗渠干部学院智慧教育管理平台",
       "sub_items": []
     },
     {
@@ -210,14 +297,18 @@
         "LLM",
         "embedding",
         "langgraph",
-        "大模型"
+        "大模型",
+        "大模型RAG",
+        "知识库检索",
+        "链路追踪",
+        "Agent"
       ],
       "category": "AI技术研究",
       "description": "大语言模型技术研究与应用",
       "sub_items": [
         {
           "name": "RAG系统",
-          "description": ""
+          "description": "知识库检索"
         },
         {
           "name": "知识库建设",
@@ -230,15 +321,19 @@
         {
           "name": "Agent开发",
           "description": ""
+        },
+        {
+          "name": "链路追踪",
+          "description": ""
         }
       ]
     },
     {
-      "name": "服务器运维",
+      "name": "运维",
       "aliases": [
+        "服务器运维",
         "服务器",
         "监控",
-        "运维",
         "grafana"
       ],
       "category": "技术运维",
@@ -260,23 +355,23 @@
       "sub_items": []
     },
     {
-      "name": "XR项目",
+      "name": "办公网系统",
       "aliases": [
-        "XR",
-        "VR",
-        "AR"
+        "办公网",
+        "OA",
+        "办公系统",
+        "办公网维护"
       ],
-      "category": "文旅文化",
-      "description": "XR技术在文旅项目中的应用",
+      "category": "其他",
+      "description": "集团办公网系统",
       "sub_items": []
     }
   ],
   "categories": [
     "文旅文化",
     "大河云",
-    "业务系统",
     "运营商业务",
-    "教育培训",
+    "对外服务",
     "AI技术研究",
     "技术运维",
     "其他"
