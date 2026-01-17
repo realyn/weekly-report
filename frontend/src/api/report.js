@@ -40,12 +40,12 @@ export const reportApi = {
     return request.get('/reports/deadline', { params: { year, week } })
   },
 
-  // 解析预览
+  // 解析预览（LLM 调用需要更长超时）
   parsePreview(thisWeekWork, nextWeekPlan) {
     return request.post('/reports/parse-preview', {
       this_week_work: thisWeekWork,
       next_week_plan: nextWeekPlan
-    })
+    }, { timeout: 60000 })
   },
 
   // 管理员查看指定用户的周报
