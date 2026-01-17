@@ -115,7 +115,7 @@ class LLMService:
     def __init__(self):
         self.provider = settings.LLM_PROVIDER
 
-    async def _call_openai_compatible(self, prompt: str, system: str = "", model: str = "qwen-flash") -> str:
+    async def _call_openai_compatible(self, prompt: str, system: str = "", model: str = "qwen-plus") -> str:
         """调用 OpenAI 兼容接口"""
         url = f"{settings.OPENAI_BASE_URL}/v1/chat/completions"
         headers = {
@@ -178,7 +178,7 @@ class LLMService:
         messages.append({"role": "user", "content": prompt})
 
         payload = {
-            "model": "qwen-turbo",
+            "model": "qwen-plus",  # 注意：不要使用 qwen-turbo/qwen-flash，准确率低
             "messages": messages,
             "temperature": 0.3,
             "max_tokens": 2000
