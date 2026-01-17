@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from typing import Optional
 import json
 from datetime import datetime
@@ -41,8 +42,10 @@ async def get_weekly_summary(db: AsyncSession, year: int, week_num: int, current
     # 判断是否为管理员
     is_admin = current_user and current_user.role == 'admin'
 
-    # 构建查询条件
-    query = select(Report, User).join(User).where(
+    # 构建查询条件（eager load items）
+    query = select(Report, User).join(User).options(
+        selectinload(Report.items)
+    ).where(
         Report.year == year,
         Report.week_num == week_num,
         Report.status == "submitted"
@@ -68,13 +71,30 @@ async def get_weekly_summary(db: AsyncSession, year: int, week_num: int, current
         # 计算任务数（按换行或数字开头计算）
         task_count = len([l for l in (report.this_week_work or "").split("\n") if l.strip()])
         total_tasks += task_count
+
+        # 构建 items 数据（结构化的工作条目）
+        this_week_items = []
+        next_week_items = []
+        for item in report.items:
+            item_data = {
+                "id": item.id,
+                "project_name": item.project_name,
+                "content": item.content
+            }
+            if item.item_type.value == "this_week":
+                this_week_items.append(item_data)
+            else:
+                next_week_items.append(item_data)
+
         reports_data.append({
             "user_id": user.id,
             "user_name": user.real_name,
             "department": user.department,
             "this_week_work": report.this_week_work,
             "next_week_plan": report.next_week_plan,
-            "task_count": task_count
+            "task_count": task_count,
+            "this_week_items": this_week_items,
+            "next_week_items": next_week_items
         })
 
     return {

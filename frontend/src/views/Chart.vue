@@ -202,6 +202,9 @@ const summaryData = ref(null)
 const loading = ref(false)
 const availableWeeksData = ref({})  // {year: [week1, week2, ...]}
 
+// 显示项目归属开关（从 localStorage 读取）
+const showProjectAttribution = ref(localStorage.getItem('showProjectAttribution') === 'true')
+
 // 图表DOM引用
 const memberTaskChartRef = ref(null)
 const projectChartRef = ref(null)
@@ -587,6 +590,7 @@ watch([year, month, weekOfMonth], fetchDashboard)
           </svg>
           <span class="card-title">团队成员本周工作详情</span>
         </div>
+
         <table class="detail-table">
           <thead>
             <tr>
@@ -599,7 +603,13 @@ watch([year, month, weekOfMonth], fetchDashboard)
             <tr v-for="report in summaryData.reports" :key="report.user_id">
               <td class="member-name">{{ report.user_name }}</td>
               <td class="work-cell">
-                <div class="work-content-lines">{{ report.this_week_work }}</div>
+                <div class="work-content-lines" v-if="!showProjectAttribution || !report.this_week_items?.length">{{ report.this_week_work }}</div>
+                <div class="work-content-lines" v-else>
+                  <div v-for="(item, idx) in report.this_week_items" :key="idx" class="work-item-line">
+                    <span>{{ idx + 1 }}. {{ item.content }}</span>
+                    <span v-if="item.project_name" class="project-attribution"> · {{ item.project_name }}</span>
+                  </div>
+                </div>
               </td>
               <td class="task-count">
                 <span class="count-badge">{{ report.task_count }}</span>
@@ -618,6 +628,7 @@ watch([year, month, weekOfMonth], fetchDashboard)
           </svg>
           <span class="card-title">下周工作计划</span>
         </div>
+
         <table class="detail-table">
           <thead>
             <tr>
@@ -630,7 +641,13 @@ watch([year, month, weekOfMonth], fetchDashboard)
             <tr v-for="report in summaryData.reports" :key="report.user_id + '-next'">
               <td class="member-name">{{ report.user_name }}</td>
               <td class="work-cell">
-                <div class="work-content-lines">{{ report.next_week_plan || '暂无计划' }}</div>
+                <div class="work-content-lines" v-if="!showProjectAttribution || !report.next_week_items?.length">{{ report.next_week_plan || '暂无计划' }}</div>
+                <div class="work-content-lines" v-else>
+                  <div v-for="(item, idx) in report.next_week_items" :key="idx" class="work-item-line">
+                    <span>{{ idx + 1 }}. {{ item.content }}</span>
+                    <span v-if="item.project_name" class="project-attribution"> · {{ item.project_name }}</span>
+                  </div>
+                </div>
               </td>
               <td class="task-count">
                 <span class="count-badge">{{ (report.next_week_plan || '').split('\n').filter(l => l.trim()).length }}</span>
@@ -895,6 +912,16 @@ watch([year, month, weekOfMonth], fetchDashboard)
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid #f1f5f9;
+}
+
+/* 项目归属内联样式 */
+.work-item-line {
+  line-height: 1.8;
+}
+
+.project-attribution {
+  color: #94a3b8;
+  font-size: 13px;
 }
 
 .card-icon {

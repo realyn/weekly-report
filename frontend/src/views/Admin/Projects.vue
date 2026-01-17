@@ -429,6 +429,14 @@ const handleRemoveFromRejected = async (name) => {
   }
 }
 
+// 显示项目归属设置（从 localStorage 读取）
+const showProjectAttribution = ref(localStorage.getItem('showProjectAttribution') === 'true')
+
+// 保存显示项目归属设置
+const saveProjectAttributionSetting = () => {
+  localStorage.setItem('showProjectAttribution', showProjectAttribution.value.toString())
+}
+
 // 重建向量索引
 const rebuildingEmbeddings = ref(false)
 const handleRebuildEmbeddings = async () => {
@@ -460,6 +468,23 @@ const handleRebuildEmbeddings = async () => {
             {{ rebuildingEmbeddings ? '重建中...' : '重建索引' }}
           </button>
           <button class="btn btn-primary" @click="openProjectDialog()">添加项目</button>
+        </div>
+      </div>
+
+      <!-- 显示设置 -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="system-section">
+          <div class="section-title">显示设置</div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-name">显示项目归属</span>
+              <span class="setting-desc">在周报汇总页面的工作条目后显示所属项目名称</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" v-model="showProjectAttribution" @change="saveProjectAttributionSetting">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -1436,6 +1461,73 @@ const handleRebuildEmbeddings = async () => {
 .form-text {
   font-size: 14px;
   color: #64748b;
+}
+
+/* 设置项样式 */
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.setting-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setting-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.setting-desc {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* 开关样式 */
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-switch input {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #e2e8f0;
+  border-radius: 12px;
+  transition: background 0.2s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: #7aaed8;
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px);
 }
 
 /* 加载和空状态 */
