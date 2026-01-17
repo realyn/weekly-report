@@ -71,71 +71,77 @@
       ]
     },
     {
-      "name": "大河云AI",
+      "name": "大河云写作助手",
       "aliases": [
-        "大河云",
-        "大河云AI升级",
-        "AI升级",
+        "写作助手",
+        "智能写作",
+        "智能问答",
+        "AI写作"
+      ],
+      "category": "人工智能",
+      "description": "大河云智能写作、智能问答功能",
+      "sub_items": []
+    },
+    {
+      "name": "大河云生图模块",
+      "aliases": [
         "生图模块",
         "AI海报",
         "AI艺术字",
         "AI人像",
-        "线索大屏",
-        "线索",
-        "智能体",
-        "出行助手",
-        "出行",
-        "出行规划",
-        "指挥中心",
-        "指挥",
-        "写作助手",
-        "智能写作",
-        "智能问答",
+        "AI生图",
+        "图片生成"
+      ],
+      "category": "人工智能",
+      "description": "大河云AI海报、AI艺术字、AI人像等图片生成功能",
+      "sub_items": []
+    },
+    {
+      "name": "大河云知识库/RAG",
+      "aliases": [
         "大河云知识库",
         "RAG",
         "LLM",
         "embedding",
-        "langgraph",
         "大模型",
         "大模型RAG",
         "大语言模型",
         "知识库检索",
-        "链路追踪",
-        "Agent",
-        "差旅助手"
+        "链路追踪"
       ],
-      "category": "大河云",
-      "description": "大河云平台AI能力建设，包含大语言模型技术应用",
-      "sub_items": [
-        {
-          "name": "写作助手",
-          "description": "智能写作、智能问答"
-        },
-        {
-          "name": "生图模块",
-          "description": "AI海报、AI艺术字、AI人像"
-        },
-        {
-          "name": "知识库/RAG",
-          "description": "知识库建设、RAG检索、Embedding服务"
-        },
-        {
-          "name": "出行助手",
-          "description": "出行规划"
-        },
-        {
-          "name": "差旅助手",
-          "description": "差旅规划"
-        },
-        {
-          "name": "指挥中心",
-          "description": "线索大屏"
-        },
-        {
-          "name": "Agent/langgraph",
-          "description": "智能体开发、工作流编排"
-        }
-      ]
+      "category": "人工智能",
+      "description": "大河云知识库建设、RAG检索、Embedding服务",
+      "sub_items": []
+    },
+    {
+      "name": "大河云出行助手",
+      "aliases": [
+        "出行助手",
+        "出行",
+        "出行规划",
+        "差旅助手",
+        "差旅规划",
+        "langgraph",
+        "工作流编排"
+      ],
+      "category": "人工智能",
+      "description": "大河云出行规划、差旅规划功能",
+      "sub_items": []
+    },
+    {
+      "name": "大河云指挥中心",
+      "aliases": [
+        "指挥中心",
+        "指挥",
+        "线索大屏",
+        "线索",
+        "新闻线索",
+        "智能体",
+        "Agent"
+      ],
+      "category": "人工智能",
+      "description": "大河云指挥中心、线索大屏、智能体开发",
+      "sub_items": []
     },
     {
       "name": "集团广告业务管理系统",
@@ -151,7 +157,7 @@
         "OCR服务",
         "文字识别"
       ],
-      "category": "大河云",
+      "category": "人工智能",
       "description": "集团广告业务管理系统",
       "sub_items": [
         {
@@ -167,6 +173,19 @@
           "description": "广告图片文字识别"
         }
       ]
+    },
+    {
+      "name": "AI预研",
+      "aliases": [
+        "预研",
+        "AI预研",
+        "技术预研",
+        "AI研究",
+        "智能体预研"
+      ],
+      "category": "人工智能",
+      "description": "人工智能技术预研与探索",
+      "sub_items": []
     },
     {
       "name": "一省一报系统",
@@ -350,7 +369,7 @@
   ],
   "categories": [
     "文旅文化",
-    "大河云",
+    "人工智能",
     "运营商业务",
     "对外服务",
     "技术运维",
