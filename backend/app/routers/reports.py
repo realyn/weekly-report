@@ -15,16 +15,6 @@ router = APIRouter(prefix="/api/reports", tags=["周报"])
 logger = logging.getLogger(__name__)
 
 
-async def run_llm_analysis_background(year: int, week_num: int):
-    """后台运行 LLM 分析"""
-    from app.services.summary_service import trigger_llm_analysis
-    try:
-        async with async_session() as db:
-            await trigger_llm_analysis(db, year, week_num)
-    except Exception:
-        logger.exception(f"后台 LLM 分析失败: {year}年第{week_num}周")
-
-
 async def run_report_parse_background(report_id: int, this_week_work: str, next_week_plan: str):
     """后台解析周报内容为结构化条目"""
     from app.services.report_service import get_report_by_id
@@ -218,9 +208,8 @@ async def create_report(
             report_data.next_week_plan or ""
         )
 
-    # 如果是提交状态，触发后台 LLM 分析
-    if report_data.status == ReportStatus.submitted:
-        background_tasks.add_task(run_llm_analysis_background, report_data.year, report_data.week_num)
+    # 注意：不再自动触发 trigger_llm_analysis
+    # 汇总统计现在直接使用 report_items 数据，LLM 缓存仅作为历史数据的降级方案
 
     return report
 
@@ -264,9 +253,8 @@ async def update_report(
             next_week or ""
         )
 
-    # 如果状态变为提交（或重新提交），触发后台 LLM 分析
-    if report_data.status == ReportStatus.submitted:
-        background_tasks.add_task(run_llm_analysis_background, report.year, report.week_num)
+    # 注意：不再自动触发 trigger_llm_analysis
+    # 汇总统计现在直接使用 report_items 数据
 
     return updated_report
 

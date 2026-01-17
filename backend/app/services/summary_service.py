@@ -91,56 +91,29 @@ async def get_weekly_summary(db: AsyncSession, year: int, week_num: int, current
     }
 
 
-def load_project_config() -> dict:
-    """加载项目配置（含别名映射）"""
-    import os
-    projects_file = "./data/projects.json"
-    if os.path.exists(projects_file):
-        try:
-            with open(projects_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            pass
-    # 默认配置
-    return {
-        "projects": [
-            {"name": "清明上河图网站", "aliases": ["清图网站", "清图", "清明上河图"]},
-            {"name": "智慧教育平台", "aliases": ["智慧教育", "红干院"]},
-            {"name": "大河云AI升级", "aliases": ["大河云", "AI升级"]},
-            {"name": "一省一报系统", "aliases": ["一省一报"]},
-            {"name": "河南日报广告业务系统", "aliases": ["广告业务"]},
-            {"name": "大语言模型", "aliases": ["RAG", "LLM", "langgraph"]},
-            {"name": "服务器运维", "aliases": ["服务器", "监控"]},
-        ]
-    }
-
-
 def extract_projects_from_text(text: str) -> list:
-    """从工作内容中提取项目名称（使用别名映射归一化）"""
-    config = load_project_config()
+    """
+    从工作内容中提取项目名称（使用 ProjectExtractor 统一逻辑）
+    这是降级方案，优先使用 report_items 表中的结构化数据
+    """
+    extractor = get_project_extractor()
+    data = extractor.load_known_projects()
 
     # 构建别名到标准名的映射
     alias_map = {}
-    for proj in config.get("projects", []):
+    for proj in data.get("projects", []):
+        if proj.get("status") == "archived":
+            continue
         std_name = proj["name"]
-        # 标准名也作为关键词
-        alias_map[std_name] = std_name
+        alias_map[std_name.lower()] = std_name
         for alias in proj.get("aliases", []):
-            alias_map[alias] = std_name
-
-    # 额外的未归类关键词（直接使用原名）
-    extra_keywords = [
-        "集团业务管理", "阜民里", "XR", "短信", "科传", "OCR",
-        "出行助手", "指挥中心", "原力"
-    ]
-    for kw in extra_keywords:
-        if kw not in alias_map:
-            alias_map[kw] = kw
+            alias_map[alias.lower()] = std_name
 
     # 提取并归一化
     found_projects = set()
+    text_lower = text.lower()
     for keyword, std_name in alias_map.items():
-        if keyword in text:
+        if keyword in text_lower:
             found_projects.add(std_name)
 
     return list(found_projects)
@@ -256,7 +229,8 @@ async def get_weekly_report_dashboard(db: AsyncSession, year: int, week_num: int
     Args:
         current_user: 当前用户，如果是管理员可以看到所有人的周报，否则看不到管理员的周报
     """
-    from app.models.report import ReportStatus
+    from app.models.report import ReportStatus, ReportItem, ItemType
+    from sqlalchemy.orm import selectinload
 
     start_date, end_date = get_week_date_range(year, week_num)
 
@@ -275,12 +249,12 @@ async def get_weekly_report_dashboard(db: AsyncSession, year: int, week_num: int
             select(func.count(User.id)).where(User.is_active == True, User.role != 'admin')
         )
 
-    # 构建查询条件
+    # 构建查询条件，预加载 items
     query = select(Report, User).join(User).where(
         Report.year == year,
         Report.week_num == week_num,
         Report.status == ReportStatus.submitted
-    )
+    ).options(selectinload(Report.items))
 
     # 非管理员用户看不到管理员的周报
     if not is_admin:
@@ -328,15 +302,24 @@ async def get_weekly_report_dashboard(db: AsyncSession, year: int, week_num: int
             "status": "completed"
         })
 
-        # 下周计划统计（关键词方式作为降级方案）
+        # 下周计划统计：优先使用 report_items 结构化数据
         plan_projects = {}
-        for line in next_week_lines:
-            projs = extract_projects_from_text(line)
-            if projs:
-                for p in projs:
-                    plan_projects[p] = plan_projects.get(p, 0) + 1
-            else:
-                plan_projects["其他"] = plan_projects.get("其他", 0) + 1
+        next_week_items = [item for item in report.items if item.item_type == ItemType.next_week]
+
+        if next_week_items:
+            # 使用结构化数据
+            for item in next_week_items:
+                proj = item.project_name or "其他"
+                plan_projects[proj] = plan_projects.get(proj, 0) + 1
+        else:
+            # 降级：使用文本解析
+            for line in next_week_lines:
+                projs = extract_projects_from_text(line)
+                if projs:
+                    for p in projs:
+                        plan_projects[p] = plan_projects.get(p, 0) + 1
+                else:
+                    plan_projects["其他"] = plan_projects.get("其他", 0) + 1
 
         if plan_projects:
             next_week_plans.append({
@@ -344,21 +327,27 @@ async def get_weekly_report_dashboard(db: AsyncSession, year: int, week_num: int
                 "projects": plan_projects
             })
 
-    # 从缓存读取 LLM 分析结果（不再实时调用）
-    llm_result = await get_cached_llm_analysis(db, year, week_num)
+    # 项目参与度统计：优先使用 report_items 结构化数据
+    project_involvement = {}
+    work_categories = {}
+    all_projects = set()
+    has_structured_data = False
 
-    if llm_result and llm_result.get("project_involvement"):
-        # 使用 LLM 提取结果
-        project_data = llm_result["project_involvement"]
-        category_data = llm_result.get("work_categories", [])
-        all_projects = set(p["name"] for p in project_data)
-    else:
-        # 降级：使用关键词提取
-        project_involvement = {}
-        work_categories = {}
-        all_projects = set()
+    for report, user in reports_with_users:
+        this_week_items = [item for item in report.items if item.item_type == ItemType.this_week]
 
-        for report, user in reports_with_users:
+        if this_week_items:
+            # 使用结构化数据
+            has_structured_data = True
+            for item in this_week_items:
+                proj = item.project_name or "其他"
+                all_projects.add(proj)
+                project_involvement[proj] = project_involvement.get(proj, 0) + 1
+                # 工作分类
+                category = categorize_work(item.content or "")
+                work_categories[category] = work_categories.get(category, 0) + 1
+        else:
+            # 该用户没有结构化数据，使用文本解析
             work_text = report.this_week_work or ""
             projects = extract_projects_from_text(work_text)
             for proj in projects:
@@ -370,6 +359,19 @@ async def get_weekly_report_dashboard(db: AsyncSession, year: int, week_num: int
                 category = categorize_work(line)
                 work_categories[category] = work_categories.get(category, 0) + 1
 
+    # 如果没有任何结构化数据，尝试从 LLM 缓存获取
+    if not has_structured_data:
+        llm_result = await get_cached_llm_analysis(db, year, week_num)
+        if llm_result and llm_result.get("project_involvement"):
+            project_data = llm_result["project_involvement"]
+            category_data = llm_result.get("work_categories", [])
+            all_projects = set(p["name"] for p in project_data)
+        else:
+            # 使用上面的关键词提取结果
+            project_data = [{"name": k, "value": v} for k, v in sorted(project_involvement.items(), key=lambda x: -x[1])]
+            category_data = [{"name": k, "value": v} for k, v in sorted(work_categories.items(), key=lambda x: -x[1])]
+    else:
+        # 使用结构化数据的统计结果
         project_data = [{"name": k, "value": v} for k, v in sorted(project_involvement.items(), key=lambda x: -x[1])]
         category_data = [{"name": k, "value": v} for k, v in sorted(work_categories.items(), key=lambda x: -x[1])]
 
