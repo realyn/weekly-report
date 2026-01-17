@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, distinct
 from sqlalchemy.orm import selectinload
-from typing import Optional
+from typing import Optional, List
 from app.models.report import Report
 from app.models.user import User
 from app.schemas.report import ReportCreate, ReportUpdate
@@ -58,6 +58,16 @@ async def update_report(db: AsyncSession, report: Report, report_data: ReportUpd
 async def delete_report(db: AsyncSession, report: Report):
     await db.delete(report)
     await db.commit()
+
+
+async def get_available_years(db: AsyncSession, user_id: Optional[int] = None) -> List[int]:
+    """获取有周报记录的年份列表"""
+    query = select(distinct(Report.year))
+    if user_id:
+        query = query.where(Report.user_id == user_id)
+    query = query.order_by(Report.year.desc())
+    result = await db.execute(query)
+    return [row[0] for row in result.fetchall()]
 
 
 async def get_week_reports_with_users(db: AsyncSession, year: int, week_num: int):

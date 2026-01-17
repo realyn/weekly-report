@@ -9,6 +9,7 @@ const isAdmin = computed(() => userStore.user?.role === 'admin')
 
 const currentYear = new Date().getFullYear()
 const year = ref(currentYear)
+const yearOptions = ref([currentYear]) // 默认当前年份
 const reports = ref([])
 const loading = ref(false)
 
@@ -123,6 +124,23 @@ const fetchUsers = async () => {
   }
 }
 
+const fetchYears = async () => {
+  try {
+    const years = await reportApi.getYears()
+    // 确保当前年份在列表中，即使没有数据
+    if (!years.includes(currentYear)) {
+      years.unshift(currentYear)
+    }
+    yearOptions.value = years.sort((a, b) => a - b) // 升序排列
+    // 默认选中最新年份
+    if (years.length > 0) {
+      year.value = years[years.length - 1]
+    }
+  } catch (e) {
+    yearOptions.value = [currentYear]
+  }
+}
+
 const fetchReports = async () => {
   loading.value = true
   try {
@@ -147,6 +165,7 @@ watch(selectedUserId, () => {
 
 onMounted(async () => {
   await fetchUsers()
+  await fetchYears()
   fetchReports()
 })
 
@@ -160,9 +179,16 @@ const getStatusText = (status) => status === 'submitted' ? '已提交' : '草稿
       <!-- 页面标题 -->
       <div class="page-header">
         <h1 class="page-title">历史周报</h1>
-        <div class="year-selector">
-          <input type="number" v-model.number="year" min="2020" max="2030" class="selector-input" @change="fetchReports" />
-          <span class="selector-label">年</span>
+        <div class="year-tabs">
+          <button
+            v-for="y in yearOptions"
+            :key="y"
+            class="year-tab"
+            :class="{ active: year === y }"
+            @click="year = y; fetchReports()"
+          >
+            {{ y }}
+          </button>
         </div>
       </div>
 
@@ -278,36 +304,34 @@ const getStatusText = (status) => status === 'submitted' ? '已提交' : '草稿
   letter-spacing: -0.025em;
 }
 
-.year-selector {
+/* 年份切换按钮 */
+.year-tabs {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.selector-input {
-  width: 100px;
-  padding: 10px 14px;
+.year-tab {
+  padding: 8px 16px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
+  background: white;
+  color: #64748b;
   font-size: 14px;
   font-weight: 600;
-  text-align: center;
-  background: white;
-  color: #0f172a;
-  transition: all 0.2s;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.selector-input:focus {
-  outline: none;
+.year-tab:hover {
   border-color: #7aaed8;
-  box-shadow: 0 0 0 3px rgba(99, 176, 221, 0.15);
+  color: #7aaed8;
+  background: #f0f7fc;
 }
 
-.selector-label {
-  font-size: 14px;
-  color: #64748b;
-  font-weight: 500;
+.year-tab.active {
+  background: #7aaed8;
+  color: white;
+  border-color: #7aaed8;
 }
 
 /* 用户切换标签 */

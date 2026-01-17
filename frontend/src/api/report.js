@@ -5,6 +5,10 @@ export const reportApi = {
     return request.get('/reports/current')
   },
 
+  getYears() {
+    return request.get('/reports/years')
+  },
+
   getList(year, weekNum) {
     const params = {}
     if (year) params.year = year

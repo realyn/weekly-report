@@ -39,6 +39,16 @@ async def run_report_parse_background(report_id: int, this_week_work: str, next_
         logger.exception(f"后台周报解析失败: report_id={report_id}")
 
 
+@router.get("/years")
+async def get_available_years(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取当前用户有周报记录的年份列表"""
+    years = await report_service.get_available_years(db, current_user.id)
+    return years
+
+
 @router.get("/current", response_model=Optional[ReportResponse])
 async def get_current_report(
     current_user: User = Depends(get_current_user),
