@@ -134,6 +134,25 @@ sqlite3 data/weekly_report.db ".schema users" # 查看结构
 - ⚠️ 不建议: `qwen-flash` — 准确率一般，仅在成本敏感场景考虑
 - ❌ 禁止: `qwen-turbo` — 项目匹配准确率低，会导致分类错误
 
+## 项目活跃度排序
+
+项目选择下拉列表根据活跃度自动排序，活跃项目优先显示，便于快速选择。
+
+**活跃度判断依据**（最近 30 天内有使用记录）:
+- **日报**: 基于 `DailyReport.date` 字段，统计该日期在 30 天内的日报条目
+- **周报**: 基于 `Report.year` + `Report.week_num` 字段，统计最近 5 周的周报条目
+
+**前端展示**:
+- 使用 Element Plus `el-option-group` 分组显示
+- "常用项目": 最近 30 天有使用记录的项目
+- "其他项目": 无近期使用记录的项目
+
+**关键代码**:
+- 后端 API: `backend/app/routers/reports.py` → `GET /api/reports/projects`
+- 前端组件: `frontend/src/views/DailyReport.vue` → `activeProjects` / `inactiveProjects` 计算属性
+
+**注意**: 日报将作为主要数据来源，周报后续将自动生成。
+
 ## 环境变量 (.env)
 
 ```env
