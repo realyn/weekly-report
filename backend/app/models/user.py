@@ -25,3 +25,4 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     reports = relationship("Report", back_populates="user")
+    daily_reports = relationship("DailyReport", back_populates="user")

@@ -40,19 +40,37 @@ async def get_reports(db: AsyncSession, year: int, week_num: Optional[int] = Non
 
 
 async def create_report(db: AsyncSession, user_id: int, report_data: ReportCreate) -> Report:
-    report = Report(user_id=user_id, **report_data.model_dump())
+    # 排除 this_week_items 和 next_week_items，这些字段在 router 中单独处理
+    report = Report(
+        user_id=user_id,
+        **report_data.model_dump(exclude={'this_week_items', 'next_week_items'})
+    )
     db.add(report)
     await db.commit()
-    await db.refresh(report)
-    return report
+    # 重新查询以加载 items 关系（用于响应序列化）
+    result = await db.execute(
+        select(Report)
+        .options(selectinload(Report.items))
+        .where(Report.id == report.id)
+    )
+    return result.scalar_one()
 
 
 async def update_report(db: AsyncSession, report: Report, report_data: ReportUpdate) -> Report:
-    for field, value in report_data.model_dump(exclude_unset=True).items():
+    # 排除 this_week_items 和 next_week_items，这些字段在 router 中单独处理
+    for field, value in report_data.model_dump(
+        exclude_unset=True,
+        exclude={'this_week_items', 'next_week_items'}
+    ).items():
         setattr(report, field, value)
     await db.commit()
-    await db.refresh(report)
-    return report
+    # 重新查询以加载 items 关系（用于响应序列化）
+    result = await db.execute(
+        select(Report)
+        .options(selectinload(Report.items))
+        .where(Report.id == report.id)
+    )
+    return result.scalar_one()
 
 
 async def delete_report(db: AsyncSession, report: Report):

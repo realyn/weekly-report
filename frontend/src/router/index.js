@@ -19,6 +19,24 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/daily-report',
+    name: 'DailyReport',
+    component: () => import('../views/DailyReport.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/daily-report/history',
+    name: 'DailyReportHistory',
+    component: () => import('../views/DailyReportHistory.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/tasks',
+    name: 'TaskList',
+    component: () => import('../views/TaskList.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/summary',
     redirect: '/chart'  // 重定向到合并后的页面
   },

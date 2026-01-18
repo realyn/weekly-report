@@ -28,6 +28,9 @@ const isLoginPage = computed(() => route.path === '/login')
 const showUserMenu = ref(false)
 
 const menuItems = [
+  { path: '/daily-report', icon: 'calendar', label: '填写日报' },
+  { path: '/daily-report/history', icon: 'list', label: '日报历史' },
+  { path: '/tasks', icon: 'task', label: '任务管理' },
   { path: '/report', icon: 'edit', label: '填写周报' },
   { path: '/chart', icon: 'chart', label: '周报汇总' },
   { path: '/history', icon: 'clock', label: '历史周报' }
@@ -70,6 +73,20 @@ const handleLogout = () => {
               class="nav-item"
               :class="{ active: $route.path === item.path }"
             >
+              <!-- 填写日报 -->
+              <svg v-if="item.icon === 'calendar'" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                <path d="M16 2v4M8 2v4M3 10h18"/>
+              </svg>
+              <!-- 日报历史 -->
+              <svg v-if="item.icon === 'list'" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+              </svg>
+              <!-- 任务管理 -->
+              <svg v-if="item.icon === 'task'" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 11l3 3L22 4"/>
+                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+              </svg>
               <!-- 填写周报 -->
               <svg v-if="item.icon === 'edit'" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>

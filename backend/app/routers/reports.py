@@ -84,28 +84,95 @@ async def get_available_years(
 
 @router.get("/projects")
 async def get_project_list(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
-    """获取项目列表（用于周报选择），包含子项信息"""
+    """获取项目列表（用于周报选择），包含子项信息和活跃度
+
+    活跃度判断依据：
+    - 日报：DailyReport.date 在最近30天内
+    - 周报：Report 所属周的结束日期在最近30天内
+    """
     from app.services.llm_service import get_project_extractor
+    from app.models.report import Report, ReportItem
+    from app.models.daily_report import DailyReport, DailyReportItem
+    from sqlalchemy import func, select
+    from datetime import datetime, timedelta, date
+
     extractor = get_project_extractor()
     data = extractor.load_known_projects()
     projects = data.get("projects", [])
 
-    # 返回活跃项目的名称和子项
+    # 计算30天前的日期
+    thirty_days_ago = date.today() - timedelta(days=30)
+
+    # 统计日报中的项目使用次数（基于日报日期）
+    daily_usage = await db.execute(
+        select(DailyReportItem.project_name, func.count(DailyReportItem.id).label('count'))
+        .join(DailyReport, DailyReportItem.daily_report_id == DailyReport.id)
+        .where(DailyReport.date >= thirty_days_ago)
+        .where(DailyReportItem.project_name.isnot(None))
+        .group_by(DailyReportItem.project_name)
+    )
+    daily_counts = {row.project_name: row.count for row in daily_usage.fetchall()}
+
+    # 统计周报中的项目使用次数（基于周报所属周）
+    current_year, current_week = date.today().isocalendar()[:2]
+
+    # 获取最近5周的周报数据（约35天覆盖30天）
+    recent_weeks = []
+    check_date = date.today()
+    for _ in range(5):
+        year, week = check_date.isocalendar()[:2]
+        recent_weeks.append((year, week))
+        check_date -= timedelta(days=7)
+
+    # 查询这些周的周报条目
+    report_counts = {}
+    if recent_weeks:
+        from sqlalchemy import or_, and_
+        week_conditions = [
+            and_(Report.year == year, Report.week_num == week)
+            for year, week in recent_weeks
+        ]
+        report_usage = await db.execute(
+            select(ReportItem.project_name, func.count(ReportItem.id).label('count'))
+            .join(Report, ReportItem.report_id == Report.id)
+            .where(or_(*week_conditions))
+            .where(ReportItem.project_name.isnot(None))
+            .group_by(ReportItem.project_name)
+        )
+        report_counts = {row.project_name: row.count for row in report_usage.fetchall()}
+
+    # 合并使用次数（日报为主，周报为辅）
+    usage_counts = {}
+    for name, count in daily_counts.items():
+        usage_counts[name] = usage_counts.get(name, 0) + count
+    for name, count in report_counts.items():
+        usage_counts[name] = usage_counts.get(name, 0) + count
+
+    # 构建结果列表
     result = []
     for proj in projects:
         if proj.get("status") == "archived":
             continue
+        name = proj["name"]
+        usage = usage_counts.get(name, 0)
         item = {
-            "name": proj["name"],
+            "name": name,
             "sub_items": [
                 {"name": sub.get("name", "")}
                 for sub in proj.get("sub_items", [])
                 if sub.get("name")
-            ]
+            ],
+            "is_active": usage > 0,
+            "usage_count": usage
         }
         result.append(item)
+
+    # 按活跃度排序：活跃在前，使用次数高的优先
+    result.sort(key=lambda x: (-int(x["is_active"]), -x["usage_count"], x["name"]))
+
     return result
 
 
