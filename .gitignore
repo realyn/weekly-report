@@ -23,3 +23,7 @@ backend/data/*.backup_*
 
 # OS
 .DS_Store
+
+# Tools
+.claude/
+.playwright-mcp/
